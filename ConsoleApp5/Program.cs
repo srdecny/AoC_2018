@@ -54,11 +54,17 @@ namespace ConsoleApp5
                 }
 
             }
-            var result = SleepGram.Select(x => x).OrderBy(x => x.Value.Sum()).Last();
-            Console.WriteLine(result.Key);
-            var minute = result.Value.ToList().IndexOf(result.Value.Max());
-            Console.WriteLine(minute);
 
+            Dictionary<string, (int, int)> MostCommonMinute = new Dictionary<string, (int, int)>();
+            foreach (var kvp in SleepGram)
+            {
+                int minute = kvp.Value.ToList().IndexOf(kvp.Value.Max());
+                int count = kvp.Value.Max();
+                MostCommonMinute.Add(kvp.Key, (minute, count));
+            }
+
+            var result = MostCommonMinute.OrderByDescending(x => x.Value.Item2).First();
+            Console.WriteLine(result.Key + " " + result.Value);
             Console.ReadLine();
                         
 
