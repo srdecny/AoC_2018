@@ -10,59 +10,92 @@ namespace ConsoleApp5
 {
     class Program
     {
-        static int ClothSize = 1024;
         static void Main(string[] args)
         {
-            int[,] cloth = new int[ClothSize, ClothSize];
-            char[] fromSeparators = new char[] { ',', ':' };
+            Dictionary<string, int[]> SleepGram = new Dictionary<string, int[]>();
+            string CurrentGuard = "";
+            int sleepsFrom = 0;
+            int sleepsTo = 0;
 
-            var file = new StreamReader(File.Open(@"C:\Users\Vojta\Documents\input.txt", FileMode.Open));
-            while (!file.EndOfStream)
+            string[] lines = File.ReadAllLines(@"C:\Users\Vojta\Documents\input.txt");
+            List<GuardLine> GuardLines = new List<GuardLine>();
+            foreach (var line in lines) GuardLines.Add(new GuardLine(line));
+            GuardLines.Sort();
+
+            foreach (var guardline in GuardLines)
             {
-                string line = file.ReadLine();
-                string[] words = line.Split();
+                string[] words = guardline.line.Split();
 
-
-                int fromY = Int32.Parse(words[2].Split(fromSeparators)[0]);
-                int fromX = Int32.Parse(words[2].Split(fromSeparators)[1]);
-
-                int sizeY = Int32.Parse(words[3].Split('x')[0]);
-                int sizeX = Int32.Parse(words[3].Split('x')[1]);
-
-                for (int x = fromX; x < fromX + sizeX; x++)
+                switch (words[2])
                 {
-                    for (int y = fromY; y < fromY + sizeY; y++)
-                    {
-                        cloth[x, y]++;
-                    }
+                    case "falls":
+                        sleepsFrom = parseMinutes(words[1]);
+                        break;
+
+                    case "wakes":
+                        sleepsTo = parseMinutes(words[1]);
+
+                        for (int i = sleepsFrom; i < sleepsTo; i++)
+                        {
+                            SleepGram[CurrentGuard][i]++;
+                        }
+                        break;
+
+                    case "Guard":
+                        CurrentGuard = words[3];
+                        if (!SleepGram.Keys.Contains(CurrentGuard))
+                        {
+                            SleepGram.Add(CurrentGuard, new int[60]);
+                        }
+                        break;
+
+                    default:
+                        throw new Exception("wtf");
                 }
 
             }
+            var result = SleepGram.Select(x => x).OrderBy(x => x.Value.Sum()).Last();
+            Console.WriteLine(result.Key);
+            var minute = result.Value.ToList().IndexOf(result.Value.Max());
+            Console.WriteLine(minute);
 
-            int result = 0;
-            for (int x = 0; x < ClothSize; x++)
-            {
-                for (int y = 0; y < ClothSize; y++)
-                {
-                    if (cloth[x, y] > 1) result++;
-                }
-            }
-            Console.WriteLine(result);
             Console.ReadLine();
+                        
+
 
         }
 
-        void PrintCloth(int[,] cloth)
+        public static int parseMinutes(string date)
         {
-            for (int x = 0; x < ClothSize; x++)
-            {
-                for (int y = 0; y < ClothSize; y++)
-                {
-                    if (cloth[x, y] > 0) Console.Write('#');
-                    else Console.Write(".");
-                }
-                Console.WriteLine();
-            }
+            // 00:26]
+            return Int32.Parse(date.Split(':')[1].Substring(0, 2));
+        }
+    }
+
+    public class GuardLine : IComparable<GuardLine>
+    {
+        public string line;
+
+        public GuardLine(string s)
+        {
+            line = s;
+        }
+
+        public int CompareTo(GuardLine other)
+        {
+            string thisDate = line.Split()[0] + " " + line.Split()[1];
+            string otherDate = other.line.Split()[0] + " " + other.line.Split()[1];
+
+            thisDate = thisDate.Replace("[", "");
+            thisDate = thisDate.Replace("]", "");
+            otherDate = otherDate.Replace("[", "");
+            otherDate = otherDate.Replace("]", "");
+
+            DateTime thisDateTime = DateTime.ParseExact(thisDate, "yyyy-MM-dd mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+            DateTime otherDateTime = DateTime.ParseExact(otherDate, "yyyy-MM-dd mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+
+            if (thisDateTime < otherDateTime) return -1;
+            else return 1;
         }
     }
 }
