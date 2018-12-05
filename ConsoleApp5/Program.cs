@@ -12,96 +12,39 @@ namespace ConsoleApp5
     {
         static void Main(string[] args)
         {
-            Dictionary<string, int[]> SleepGram = new Dictionary<string, int[]>();
-            string CurrentGuard = "";
-            int sleepsFrom = 0;
-            int sleepsTo = 0;
 
-            string[] lines = File.ReadAllLines(@"C:\Users\Vojta\Documents\input.txt");
-            List<GuardLine> GuardLines = new List<GuardLine>();
-            foreach (var line in lines) GuardLines.Add(new GuardLine(line));
-            GuardLines.Sort();
+            var stack = new Stack<char>();
+            var file = new StreamReader(File.Open(@"C:\Users\srdecny\Documents\input.txt", FileMode.Open));
 
-            foreach (var guardline in GuardLines)
+            while (!file.EndOfStream)
             {
-                string[] words = guardline.line.Split();
+                char nextChar = (char)file.Read();
 
-                switch (words[2])
+                if (stack.Count >= 1)
                 {
-                    case "falls":
-                        sleepsFrom = parseMinutes(words[1]);
-                        break;
-
-                    case "wakes":
-                        sleepsTo = parseMinutes(words[1]);
-
-                        for (int i = sleepsFrom; i < sleepsTo; i++)
-                        {
-                            SleepGram[CurrentGuard][i]++;
-                        }
-                        break;
-
-                    case "Guard":
-                        CurrentGuard = words[3];
-                        if (!SleepGram.Keys.Contains(CurrentGuard))
-                        {
-                            SleepGram.Add(CurrentGuard, new int[60]);
-                        }
-                        break;
-
-                    default:
-                        throw new Exception("wtf");
+                    char previousChar = stack.Peek();
+                    if  (Math.Abs(previousChar - nextChar) == 32)
+                    {
+                        stack.Pop();
+                    }
+                    else
+                    {
+                        stack.Push(nextChar);
+                    }
                 }
-
+                else
+                {
+                    stack.Push(nextChar);
+                }
             }
 
-            Dictionary<string, (int, int)> MostCommonMinute = new Dictionary<string, (int, int)>();
-            foreach (var kvp in SleepGram)
-            {
-                int minute = kvp.Value.ToList().IndexOf(kvp.Value.Max());
-                int count = kvp.Value.Max();
-                MostCommonMinute.Add(kvp.Key, (minute, count));
-            }
-
-            var result = MostCommonMinute.OrderByDescending(x => x.Value.Item2).First();
-            Console.WriteLine(result.Key + " " + result.Value);
+            stack.Pop(); // the newline char at EOF
+            Console.WriteLine(stack.Count);
             Console.ReadLine();
-                        
 
-
+                   
         }
 
-        public static int parseMinutes(string date)
-        {
-            // 00:26]
-            return Int32.Parse(date.Split(':')[1].Substring(0, 2));
-        }
-    }
 
-    public class GuardLine : IComparable<GuardLine>
-    {
-        public string line;
-
-        public GuardLine(string s)
-        {
-            line = s;
-        }
-
-        public int CompareTo(GuardLine other)
-        {
-            string thisDate = line.Split()[0] + " " + line.Split()[1];
-            string otherDate = other.line.Split()[0] + " " + other.line.Split()[1];
-
-            thisDate = thisDate.Replace("[", "");
-            thisDate = thisDate.Replace("]", "");
-            otherDate = otherDate.Replace("[", "");
-            otherDate = otherDate.Replace("]", "");
-
-            DateTime thisDateTime = DateTime.ParseExact(thisDate, "yyyy-MM-dd mm:ss", System.Globalization.CultureInfo.InvariantCulture);
-            DateTime otherDateTime = DateTime.ParseExact(otherDate, "yyyy-MM-dd mm:ss", System.Globalization.CultureInfo.InvariantCulture);
-
-            if (thisDateTime < otherDateTime) return -1;
-            else return 1;
-        }
     }
 }
