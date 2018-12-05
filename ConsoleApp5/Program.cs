@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using System.Collections.Generic;
 
 namespace ConsoleApp5
 {
@@ -12,34 +11,43 @@ namespace ConsoleApp5
     {
         static void Main(string[] args)
         {
+            int minimumPolymerLength = Int32.MaxValue;
 
-            var stack = new Stack<char>();
-            var file = new StreamReader(File.Open(@"C:\Users\srdecny\Documents\input.txt", FileMode.Open));
-
-            while (!file.EndOfStream)
+            for (int i = 65; i <= 90; i++)
             {
-                char nextChar = (char)file.Read();
+                var stack = new Stack<char>();
+                var file = new StreamReader(File.Open(@"C:\Users\srdecny\Documents\input.txt", FileMode.Open));
 
-                if (stack.Count >= 1)
+                while (!file.EndOfStream)
                 {
-                    char previousChar = stack.Peek();
-                    if  (Math.Abs(previousChar - nextChar) == 32)
-                    {
-                        stack.Pop();
-                    }
-                    else
-                    {
-                        stack.Push(nextChar);
+                    char nextChar = (char)file.Read();
+                    if (!(nextChar - i == 0 || nextChar - i == 32)) {
+
+                        if (stack.Count >= 1)
+                        {
+                            char previousChar = stack.Peek();
+                            if (Math.Abs(previousChar - nextChar) == 32)
+                            {
+                                stack.Pop();    
+                            }
+                            else
+                            {
+                                stack.Push(nextChar);
+                            }
+                        }
+                        else
+                        {
+                            stack.Push(nextChar);
+                        }
                     }
                 }
-                else
-                {
-                    stack.Push(nextChar);
-                }
+
+                stack.Pop(); // the newline char at EOF
+                minimumPolymerLength = Math.Min(minimumPolymerLength, stack.Count());
+                file.Close();
             }
 
-            stack.Pop(); // the newline char at EOF
-            Console.WriteLine(stack.Count);
+            Console.WriteLine(minimumPolymerLength);
             Console.ReadLine();
 
                    
