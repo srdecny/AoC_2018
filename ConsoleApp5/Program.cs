@@ -10,86 +10,39 @@ namespace ConsoleApp5
 {
     class Program
     {
-        // Ugly as a sin.
+        // Ugly as sin.
         static void Main(string[] args)
         {
-            int lastSpreadPoint = 0;
             List<Point> points = new List<Point>();
-            Dictionary<int, int> pointsClaimedItems = new Dictionary<int, int>();
-            HashSet<(int, int)> claimedPoints = new HashSet<(int, int)>(); // already claimed in round N-2 and later.
+            int maxDistance = 10000;
+            int validPoints = 0;
 
             var file = new StreamReader(File.Open(@"C:\Users\srdecny\Documents\input.txt", FileMode.Open));
-            int id = 0;
             while (!file.EndOfStream)
             {
                 string line = file.ReadLine();
                 string[] coords = line.Split(new string[] { ", " }, StringSplitOptions.None);
                 points.Add(new Point(Int32.Parse(coords[0]), Int32.Parse(coords[1])));
-                points.Last().Id = id;
-                pointsClaimedItems.Add(id, 1); // each Id has one starting point
-                claimedPoints.Add(ValueTuple.Create(points.Last().Coordinates.Item1, points.Last().Coordinates.Item2));
-                id++;
             }
 
-            List<Point> boxedPoints = Point.CalculateBoxedPoints(points);
-            List<Point> spreadingPoints = new List<Point>(points); // points claimed in round N-1, these will spread around
-            while (!boxedPoints.All(x => x.stoppedSpreading == true))
+            var boxedPoints = Point.CalculateBoxedPoints(points);
+            for (int x = boxedPoints[0].Coordinates.Item1; x < boxedPoints[1].Coordinates.Item1; x++)
             {
-                Dictionary<(int, int), List<int>> stakedPoints = new Dictionary<(int, int), List<int>>();
-                foreach(var point in spreadingPoints)
+                for (int y = boxedPoints[0].Coordinates.Item2; y < boxedPoints[1].Coordinates.Item2; y++)
                 {
-                    foreach (var coord in Point.GenerateNeighbours(point))
+                    var newPoint = new Point(x, y);
+                    int distance = 0;
+                    foreach (var point in points)
                     {
-                        if (!claimedPoints.Contains(coord))
-                        {
-                            if (!stakedPoints.ContainsKey(coord)) { stakedPoints.Add(coord, new List<int>()); }
-                            stakedPoints[coord].Add(point.Id);
-                        }
+                        distance += Point.CalculateAbsDistance(newPoint, point);
                     }
+                    if (distance < maxDistance) validPoints++;
                 }
-
-                foreach (var point in spreadingPoints) { claimedPoints.Add(point.Coordinates); }
-                spreadingPoints.Clear();
-
-                var contestedPoints = stakedPoints.Where(x => x.Value.Distinct().Count() > 1).Select(x => x.Key).ToList();
-                foreach (var point in contestedPoints) { claimedPoints.Add(point); }
-                var uncontestedPoints = stakedPoints.Where(x => x.Value.Distinct().Count() == 1).Select(x => x).ToList();
-                foreach(var point in uncontestedPoints)
-                {
-                    claimedPoints.Add(point.Key);
-                    pointsClaimedItems[point.Value[0]]++;
-                    spreadingPoints.Add(new Point(point.Key.Item1, point.Key.Item2));
-                    spreadingPoints.Last().Id = point.Value[0];
-                }
-
-                // stop spreading
-                var pointIds = boxedPoints.Where(x => x.stoppedSpreading == false).Distinct().Select(x => x.Id).ToList();
-                foreach(var point in spreadingPoints.Distinct())
-                {
-                    if (pointIds.Contains(point.Id))
-                    {
-                        pointIds.Remove(point.Id);
-                    }
-                }
-
-                foreach (var stoppedPoint in pointIds)
-                {
-                    boxedPoints.Where(x => x.Id == stoppedPoint).First().stoppedSpreading = true;
-                    lastSpreadPoint++;
-                    if (lastSpreadPoint == 25) // experimentally verified the 25th point is the last to spread
-                    {
-                        var stoppedPointIds = boxedPoints.Where(x => x.stoppedSpreading).Select(x => x.Id).ToList();
-                        var max = pointsClaimedItems.Where(x => stoppedPointIds.Contains(x.Key)).Max(x => x.Value);
-                        Console.WriteLine(max);
-                        Console.ReadLine();
-                    }
-                }
-
-
-
-
             }
 
+            Console.WriteLine(validPoints);
+            Console.ReadLine();
+            
 
         }
 
@@ -115,16 +68,9 @@ namespace ConsoleApp5
             int maxX = points.Max(x => x.Coordinates.Item1);
             int maxY = points.Max(x => x.Coordinates.Item2);
 
-            foreach(var point in points)
-            {
-                if (point.Coordinates.Item1 > minX &&
-                    point.Coordinates.Item2 > minY &&
-                    point.Coordinates.Item1 < maxX &&
-                    point.Coordinates.Item2 < maxY)
-                {
-                    boxedPoints.Add(point);
-                }
-            }
+            boxedPoints.Add(new Point(minX, minY));
+            boxedPoints.Add(new Point(maxX, maxY));
+
             return boxedPoints;
         }
 
@@ -136,6 +82,12 @@ namespace ConsoleApp5
             neighbours.Add(ValueTuple.Create(point.Coordinates.Item1, point.Coordinates.Item2 + 1));
             neighbours.Add(ValueTuple.Create(point.Coordinates.Item1, point.Coordinates.Item2 - 1));
             return neighbours;
+        }
+
+        public static int CalculateAbsDistance(Point first, Point second)
+        {
+            return  Math.Abs(first.Coordinates.Item1 - second.Coordinates.Item1) + 
+                    Math.Abs(first.Coordinates.Item2 - second.Coordinates.Item2);
         }
     }
 
