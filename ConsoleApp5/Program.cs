@@ -15,6 +15,8 @@ namespace ConsoleApp5
             HashSet<string> Letters = new HashSet<string>();
             Dictionary<string, List<string>> Prerequisities = new Dictionary<string, List<string>>();
             List<string> CompletedLetters = new List<string>();
+            List<WorkItem> WorkQueue = new List<WorkItem>();
+
             var file = new StreamReader(File.Open(@"C:\Users\srdecny\Documents\input.txt", FileMode.Open));
             while (!file.EndOfStream)
             {
@@ -35,21 +37,54 @@ namespace ConsoleApp5
 
             List<string> SortedLetters = Letters.OrderBy(x => x).ToList();
 
-            while (SortedLetters.Count != 0)
+            int Clock = 0;
+
+            while (CompletedLetters.Count != Letters.Count)
             {
+                List<string> avaliableLetters = new List<string>();
+
                 foreach (var letter in SortedLetters)
                 {
+
                     if (Prerequisities[letter].Count == 0 ||
                         Prerequisities[letter].All(x => CompletedLetters.Contains(x)))
                     {
-                        CompletedLetters.Add(letter);
-                        SortedLetters.Remove(letter);
+                        avaliableLetters.Add(letter);
+                    }
+                }
+
+                foreach (var avaliableLetter in avaliableLetters)
+                {
+                    if (WorkQueue.Count < 5)
+                    {
+                        WorkQueue.Add(new WorkItem(avaliableLetter));
+                        SortedLetters.Remove(avaliableLetter);
+                    }
+                    else
+                    {
                         break;
                     }
                 }
-            }
+            
+                Clock++;
+                // We can't modify WorkQueue directly since it would invalidate the iterator. 
+                List<WorkItem> newQueue = new List<WorkItem>();
+                foreach (var item in WorkQueue)
+                {
+                    item.RemainingSeconds--;
+                    if (item.RemainingSeconds > 0)
+                    {
+                        newQueue.Add(item);
+                    }
+                    else
+                    {
+                        CompletedLetters.Add(item.Letter);
+                    }
+                }
+                WorkQueue = newQueue;
 
-            foreach (var letter in CompletedLetters) Console.Write(letter);
+            }
+            Console.WriteLine(Clock);
             Console.ReadLine();
 
         }
@@ -57,6 +92,22 @@ namespace ConsoleApp5
            
     }
 
+    class WorkItem
+    {
+        public int RemainingSeconds { get; set; }
+        public string Letter { get; set; }
+
+        public WorkItem(string l)
+        {
+            RemainingSeconds = calculateDuration(l);
+            Letter = l;
+        }
+
+        static int calculateDuration(string letter)
+        {
+            return 60 + Convert.ToChar(letter[0]) - 64;
+        }
+    }
 
 }
 
