@@ -12,102 +12,72 @@ namespace ConsoleApp5
     {
         static void Main(string[] args)
         {
-            HashSet<string> Letters = new HashSet<string>();
-            Dictionary<string, List<string>> Prerequisities = new Dictionary<string, List<string>>();
-            List<string> CompletedLetters = new List<string>();
-            List<WorkItem> WorkQueue = new List<WorkItem>();
-
             var file = new StreamReader(File.Open(@"C:\Users\srdecny\Documents\input.txt", FileMode.Open));
-            while (!file.EndOfStream)
-            {
-                string[] words = file.ReadLine().Split();
-                Letters.Add(words[1]);
-                Letters.Add(words[7]);
-                if (!Prerequisities.ContainsKey(words[7]))
-                {
-                    Prerequisities[words[7]] = new List<string>();
-                }
-                if (!Prerequisities.ContainsKey(words[1]))
-                {
-                    Prerequisities[words[1]] = new List<string>();
-                }
+            Node root = new Node(file);
 
-                Prerequisities[words[7]].Add(words[1]);
-            }
-
-            List<string> SortedLetters = Letters.OrderBy(x => x).ToList();
-
-            int Clock = 0;
-
-            while (CompletedLetters.Count != Letters.Count)
-            {
-                List<string> avaliableLetters = new List<string>();
-
-                foreach (var letter in SortedLetters)
-                {
-
-                    if (Prerequisities[letter].Count == 0 ||
-                        Prerequisities[letter].All(x => CompletedLetters.Contains(x)))
-                    {
-                        avaliableLetters.Add(letter);
-                    }
-                }
-
-                foreach (var avaliableLetter in avaliableLetters)
-                {
-                    if (WorkQueue.Count < 5)
-                    {
-                        WorkQueue.Add(new WorkItem(avaliableLetter));
-                        SortedLetters.Remove(avaliableLetter);
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-            
-                Clock++;
-                // We can't modify WorkQueue directly since it would invalidate the iterator. 
-                List<WorkItem> newQueue = new List<WorkItem>();
-                foreach (var item in WorkQueue)
-                {
-                    item.RemainingSeconds--;
-                    if (item.RemainingSeconds > 0)
-                    {
-                        newQueue.Add(item);
-                    }
-                    else
-                    {
-                        CompletedLetters.Add(item.Letter);
-                    }
-                }
-                WorkQueue = newQueue;
-
-            }
-            Console.WriteLine(Clock);
+            Console.WriteLine(root.CountMetadata());
             Console.ReadLine();
 
         }
-
-           
     }
 
-    class WorkItem
+    class Node
     {
-        public int RemainingSeconds { get; set; }
-        public string Letter { get; set; }
+        public List<Node> Children { get; set; } = new List<Node>();
+        public List<int> Metadata { get; set; } = new List<int>();
 
-        public WorkItem(string l)
+       
+
+        public Node(StreamReader input)
         {
-            RemainingSeconds = calculateDuration(l);
-            Letter = l;
+            int ChildrenCount = ReadNextInt(input);
+            int MetadataCount = ReadNextInt(input);
+
+            for (int i = 0; i < ChildrenCount; i++)
+            {
+                Children.Add(new Node(input));
+            }
+
+            for (int i = 0; i < MetadataCount; i++)
+            {
+                Metadata.Add(ReadNextInt(input));
+            }
         }
 
-        static int calculateDuration(string letter)
+        private static int ReadNextInt(StreamReader input)
         {
-            return 60 + Convert.ToChar(letter[0]) - 64;
+            // StringBuilder could perform better. Also, I feel like there's a systematic way to do this.
+            string output = "";
+            int lastChar = 0;
+           
+            while (!input.EndOfStream)
+            {
+                lastChar = input.Read();
+                if (lastChar == ' ') break;
+                output += (char)lastChar;
+            }
+
+            return Int32.Parse(output);
+        }
+
+        public int CountMetadata()
+        {
+            int count = 0;
+            foreach (var child in Children)
+            {
+                count += child.CountMetadata();
+            }
+            foreach (var data in Metadata)
+            {
+                count += data;
+            }
+            return count;
         }
     }
+
+    
+
+    
 
 }
 
