@@ -16,6 +16,7 @@ namespace ConsoleApp5
             Node root = new Node(file);
 
             Console.WriteLine(root.CountMetadata());
+            Console.WriteLine(root.CountValue());
             Console.ReadLine();
 
         }
@@ -72,6 +73,26 @@ namespace ConsoleApp5
                 count += data;
             }
             return count;
+        }
+
+        public int CountValue()
+        {
+            if (Children.Count == 0)
+            {
+                return Metadata.Sum();
+            }
+            else
+            {
+                int value = 0;
+                foreach (var meta in Metadata)
+                {
+                    if (Children.Count > meta - 1)
+                    {
+                        value += Children[meta - 1].CountValue();
+                    }
+                }
+                return value;
+            }
         }
     }
 
