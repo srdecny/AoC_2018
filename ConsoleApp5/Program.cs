@@ -12,89 +12,84 @@ namespace ConsoleApp5
     {
         static void Main(string[] args)
         {
-            var file = new StreamReader(File.Open(@"C:\Users\srdecny\Documents\input.txt", FileMode.Open));
-            Node root = new Node(file);
+            int playerCount = 458;
+            int lastMarble = 7201900;
 
-            Console.WriteLine(root.CountMetadata());
-            Console.WriteLine(root.CountValue());
+            int[] playerScore = new int[playerCount];
+            MarbleCircle circle = new MarbleCircle();
+            
+
+            for (int marble = 2; marble <= lastMarble; marble++)
+            {
+                playerScore[marble % playerCount] += circle.addMarble(marble);
+                //circle.printMarbles();
+            }
+
+            Console.WriteLine(playerScore.Max());
             Console.ReadLine();
-
         }
+
+        
+
     }
 
-    class Node
+    class MarbleCircle
     {
-        public List<Node> Children { get; set; } = new List<Node>();
-        public List<int> Metadata { get; set; } = new List<int>();
+        int lastMarbleIndex = 1;
+        List<int> Marbles = new List<int>() { 0, 1 };
 
-       
-
-        public Node(StreamReader input)
+        public int addMarble(int marble)
         {
-            int ChildrenCount = ReadNextInt(input);
-            int MetadataCount = ReadNextInt(input);
-
-            for (int i = 0; i < ChildrenCount; i++)
+            if (marble % 23 == 0)
             {
-                Children.Add(new Node(input));
-            }
-
-            for (int i = 0; i < MetadataCount; i++)
-            {
-                Metadata.Add(ReadNextInt(input));
-            }
-        }
-
-        private static int ReadNextInt(StreamReader input)
-        {
-            // StringBuilder could perform better. Also, I feel like there's a systematic way to do this.
-            string output = "";
-            int lastChar = 0;
-           
-            while (!input.EndOfStream)
-            {
-                lastChar = input.Read();
-                if (lastChar == ' ') break;
-                output += (char)lastChar;
-            }
-
-            return Int32.Parse(output);
-        }
-
-        public int CountMetadata()
-        {
-            int count = 0;
-            foreach (var child in Children)
-            {
-                count += child.CountMetadata();
-            }
-            foreach (var data in Metadata)
-            {
-                count += data;
-            }
-            return count;
-        }
-
-        public int CountValue()
-        {
-            if (Children.Count == 0)
-            {
-                return Metadata.Sum();
+                return scoreMarble(marble);
             }
             else
             {
-                int value = 0;
-                foreach (var meta in Metadata)
+                int marbleIndex = MathMod(lastMarbleIndex + 2, Marbles.Count());
+                if (marbleIndex == 0)
                 {
-                    if (Children.Count > meta - 1)
-                    {
-                        value += Children[meta - 1].CountValue();
-                    }
+                    Marbles.Add(marble);
+                    lastMarbleIndex = Marbles.Count() - 1;
                 }
-                return value;
+                else
+                {
+                    Marbles.Insert(marbleIndex, marble);
+                    lastMarbleIndex = marbleIndex;
+                }
+                return 0;
             }
         }
+
+        private int scoreMarble(int marble)
+        {
+            int marbleIndex = MathMod (lastMarbleIndex - 7,Marbles.Count());
+            int result = marble + Marbles[marbleIndex];
+            Marbles.RemoveAt(marbleIndex);
+            if (marbleIndex == 0)
+            {
+                lastMarbleIndex = 0;
+            }
+            else
+            {
+                lastMarbleIndex = marbleIndex;
+            }
+            return result;
+        }
+
+        public void printMarbles()
+        {
+            foreach (var i in Marbles) Console.Write(i + " ");
+            Console.WriteLine();
+        }
+        static int MathMod(int a, int b)
+        {
+            return (((a % b) + b) % b);
+        }
     }
+
+    
+
 
     
 
