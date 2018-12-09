@@ -12,17 +12,16 @@ namespace ConsoleApp5
     {
         static void Main(string[] args)
         {
-            int playerCount = 458;
-            int lastMarble = 7201900;
+            long playerCount = 458;
+            long lastMarble = 7201900;
 
-            int[] playerScore = new int[playerCount];
+            long[] playerScore = new long[playerCount];
             MarbleCircle circle = new MarbleCircle();
             
 
-            for (int marble = 2; marble <= lastMarble; marble++)
+            for (long marble = 1; marble <= lastMarble; marble++)
             {
                 playerScore[marble % playerCount] += circle.addMarble(marble);
-                //circle.printMarbles();
             }
 
             Console.WriteLine(playerScore.Max());
@@ -35,10 +34,17 @@ namespace ConsoleApp5
 
     class MarbleCircle
     {
-        int lastMarbleIndex = 1;
-        List<int> Marbles = new List<int>() { 0, 1 };
+        LinkedListNode<long> currentNode;
+        LinkedList<long> Marbles = new LinkedList<long>();
 
-        public int addMarble(int marble)
+        public MarbleCircle()
+        {
+            LinkedListNode<long> node = new LinkedListNode<long>(0);
+            Marbles.AddFirst(node);
+            currentNode = node;
+        }
+
+        public long addMarble(long marble)
         {
             if (marble % 23 == 0)
             {
@@ -46,54 +52,46 @@ namespace ConsoleApp5
             }
             else
             {
-                int marbleIndex = MathMod(lastMarbleIndex + 2, Marbles.Count());
-                if (marbleIndex == 0)
-                {
-                    Marbles.Add(marble);
-                    lastMarbleIndex = Marbles.Count() - 1;
-                }
-                else
-                {
-                    Marbles.Insert(marbleIndex, marble);
-                    lastMarbleIndex = marbleIndex;
-                }
+                Marbles.AddAfter(currentNode.NextOrFirst(), marble);
+                currentNode = currentNode.NextOrFirst().NextOrFirst();
                 return 0;
             }
         }
 
-        private int scoreMarble(int marble)
+        private long scoreMarble(long marble)
         {
-            int marbleIndex = MathMod (lastMarbleIndex - 7,Marbles.Count());
-            int result = marble + Marbles[marbleIndex];
-            Marbles.RemoveAt(marbleIndex);
-            if (marbleIndex == 0)
+            for (int i = 0; i < 6; i++)
             {
-                lastMarbleIndex = 0;
+                currentNode = currentNode.PreviousOrLast();
             }
-            else
-            {
-                lastMarbleIndex = marbleIndex;
-            }
+            long result = marble + currentNode.PreviousOrLast().Value;
+            Marbles.Remove(currentNode.PreviousOrLast());
             return result;
+
         }
 
-        public void printMarbles()
+       
+    }
+
+    static class CircularLinkedList
+    {
+        public static LinkedListNode<T> NextOrFirst<T>(this LinkedListNode<T> current)
         {
-            foreach (var i in Marbles) Console.Write(i + " ");
-            Console.WriteLine();
+            return current.Next ?? current.List.First;
         }
-        static int MathMod(int a, int b)
+
+        public static LinkedListNode<T> PreviousOrLast<T>(this LinkedListNode<T> current)
         {
-            return (((a % b) + b) % b);
+            return current.Previous ?? current.List.Last;
         }
     }
 
-    
 
 
-    
 
-    
+
+
+
 
 }
 
