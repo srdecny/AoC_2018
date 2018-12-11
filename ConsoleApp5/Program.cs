@@ -15,9 +15,12 @@ namespace ConsoleApp5
 
         static void Main(string[] args)
         {
-            (int, int) maxCoords = ValueTuple.Create(301, 301);
-            int maxScore = Int32.MinValue;
-            int[,] grid = new int[300, 300];
+            long[,] grid = new long[300, 300];
+            long[,] integralImage = new long[300, 300];
+
+            long maxScore = long.MinValue;
+            (long, long) maxCoords = ValueTuple.Create(301, 301);
+            long maxSize = -1;
             object myLock = new object();
             
             Parallel.ForEach(Enumerable.Range(0, 300), x =>
@@ -28,38 +31,68 @@ namespace ConsoleApp5
                 });
             });
 
-            Parallel.ForEach(Enumerable.Range(1, 298), x =>
+            for (long x = 0; x < 300; x++)
             {
-                Parallel.ForEach(Enumerable.Range(1, 298), y =>
+                for (long y = 0; y < 300; y++)
                 {
-                    int score = CalculateNeighbours(x, y).Sum(neighbour => grid[neighbour.Item1, neighbour.Item2]);
+                    integralImage[x, y] = grid[x, y];
+                    if (x - 1 >= 0) integralImage[x, y] += integralImage[x - 1, y];
+                    if (y - 1 >= 0) integralImage[x, y] += integralImage[x, y - 1];
+                    if (x - 1 >= 0 && y - 1 >= 0) integralImage[x, y] -= integralImage[x - 1, y - 1];
+                   
+                }
+            }
 
-                    if (score > maxScore)
+            Parallel.ForEach(Enumerable.Range(0, 300), x =>
+            {
+                Parallel.ForEach(Enumerable.Range(0, 300), y =>
+                {
+                    Parallel.ForEach(CalculateSquareSizes(x, y), size =>
                     {
-                        lock (myLock)
+                        long score = integralImage[x + size, y + size];
+                        if (x - 1 >= 0 && y - 1 >= 0) score += integralImage[x - 1, y - 1];
+                        if (x - 1 >= 0) score -= integralImage[x - 1, y + size];
+                        if (y - 1 >= 0) score -= integralImage[x + size, y - 1];
+
+                        if (x == 242 && y == 67)
                         {
-                            if (score > maxScore)
+                            ;
+                        }
+
+                        if (score > maxScore)
+                        {
+                            lock (myLock)
                             {
-                                maxCoords = ValueTuple.Create(x, y);
-                                maxScore = score;
+                                if (score > maxScore)
+                                {
+                                    maxScore = score;
+                                    maxCoords = ValueTuple.Create(x, y);
+                                    maxSize = size;
+
+                                    
+                                }
                             }
                         }
-                    }
+
+                    });
                 });
             });
 
-            Console.WriteLine(maxCoords); // the center
+            Console.WriteLine(maxCoords.Item1 + 1); 
+            Console.WriteLine(maxCoords.Item2 + 1); 
+            Console.WriteLine(maxScore);
+            Console.WriteLine(maxSize + 1);
             Console.ReadLine();
 
         }
 
-        private static int CalculatePowerLevel(int x, int y)
+        private static long CalculatePowerLevel(long x, long y)
         {
-            int serial = 8444;
-            int powerLevel = 0;
+            long serial = 18;
+            long powerLevel = 0;
 
             //Find the fuel cell's rack ID, which is its X coordinate plus 10.
-            int id = x + 10 + 1;
+            long id = x + 10 + 1;
             //Begin with a power level of the rack ID times the Y coordinate.
             powerLevel = id * (y + 1);
             //Increase the power level by the value of the grid serial number(your puzzle input).
@@ -73,36 +106,20 @@ namespace ConsoleApp5
 
         }
 
-        private static List<(int, int)> CalculateNeighbours(int coordsX, int coordsY)
+
+        // possible square sizes, starting from the upper left corner
+        private static List<long> CalculateSquareSizes(long x, long y)
         {
-            List<(int, int)> neighbours = new List<(int, int)>();
-            for (int x = -1; x <= 1; x++)
+            List<long> sizes = new List<long>() { 0 };
+            for (long size = 1; size <= 300; size++)
             {
-                for (int y = -1; y <= 1; y++)
-                {
-                    neighbours.Add(ValueTuple.Create(x + coordsX, y + coordsY));
-                }
+                if (x + size < 300 && y + size < 300) sizes.Add(size);
+                else break;
             }
-            return neighbours;
+            return sizes;
         }
 
     }
-
-
-
-
     
-
-    
-
-   
-
-
-
-
-
-
-
-
 }
 
