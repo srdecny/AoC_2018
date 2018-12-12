@@ -29,15 +29,15 @@ namespace ConsoleApp5
                 plantRules.Add(binary, line[9] == '#' ? true : false);
             }
 
-            int iterations = 20;
+            long iterations = 50000000000;
+            long totalSum = 0;
             HashSet<int> newPlants = new HashSet<int>();
 
-            for (int iter = 0; iter < iterations; iter++)
+            for (int iter = 1; iter <= iterations; iter++)
             {
                 newPlants = new HashSet<int>();
                 int min = currentPlants.Min() - 3;
                 int max = currentPlants.Max() + 3;
-
 
                 for (int pot = min; pot <= max; pot++)
                 {
@@ -48,9 +48,18 @@ namespace ConsoleApp5
                     }
                     if (plantRules[sum]) newPlants.Add(pot);
                 }
+                // the simulation converged to a stable point
+                if (currentPlants.Select(x => x + 1).Except(newPlants).Count() == 0)
+                {
+                    currentPlants = newPlants;
+                    totalSum = currentPlants.Sum();
+                    totalSum += currentPlants.Count() * (iterations - iter);
+                    break;
+                }
+
                 currentPlants = newPlants;
             }
-            int totalSum = currentPlants.Sum();
+
             Console.WriteLine(totalSum);
             Console.ReadLine();
         }
