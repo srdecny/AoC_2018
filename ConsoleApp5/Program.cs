@@ -15,56 +15,236 @@ namespace ConsoleApp5
 
         static void Main(string[] args)
         {
-            HashSet<int> currentPlants = new HashSet<int>();
-            Dictionary<int, bool> plantRules = new Dictionary<int, bool>();
-            StreamReader file = new StreamReader(@"C:\Users\srdecny\Documents\input.txt");
-
-            string line = file.ReadLine();
-            line.Skip(15).Select((x, i) => new { x, i }).Where(c => c.x == '#').Select(c => c.i).ToList().ForEach(x => currentPlants.Add(x));
-            line = file.ReadLine();
-            while (!file.EndOfStream)
-            {
-                line = file.ReadLine();
-                int binary = line.Take(5).Select((x, i) => new { x, i }).Where(c => c.x == '#').Sum(c => (int)Math.Pow(2, c.i));
-                plantRules.Add(binary, line[9] == '#' ? true : false);
-            }
-
-            long iterations = 50000000000;
-            long totalSum = 0;
-            HashSet<int> newPlants = new HashSet<int>();
-
-            for (int iter = 1; iter <= iterations; iter++)
-            {
-                newPlants = new HashSet<int>();
-                int min = currentPlants.Min() - 3;
-                int max = currentPlants.Max() + 3;
-
-                for (int pot = min; pot <= max; pot++)
-                {
-                    int sum = 0;
-                    for (int i = 0; i < 5; i++)
-                    {
-                        if (currentPlants.Contains(pot + i - 2)) sum += (int)Math.Pow(2, i);
-                    }
-                    if (plantRules[sum]) newPlants.Add(pot);
-                }
-                // the simulation converged to a stable point
-                if (currentPlants.Select(x => x + 1).Except(newPlants).Count() == 0)
-                {
-                    currentPlants = newPlants;
-                    totalSum = currentPlants.Sum();
-                    totalSum += currentPlants.Count() * (iterations - iter);
-                    break;
-                }
-
-                currentPlants = newPlants;
-            }
-
-            Console.WriteLine(totalSum);
+            Map map = new Map();
+            map.Load();
+            map.RunSimulation();
+            Console.WriteLine("END");
             Console.ReadLine();
         }
 
     }
+
+    public class Cart
+    {
+        public enum Memory { Left, Straight, Right };
+        public enum Position { Up, Down, Left, Right};
+
+        public Position CurrentPosition { get; set; }
+        public Memory CurrentMemory { get; set; }
+
+        public Cart(char position)
+        {
+            switch (position)
+            {
+                case '>':
+                    CurrentPosition = Position.Right;
+                    break;
+                case '<':
+                    CurrentPosition = Position.Left;
+                    break;
+                case '^':
+                    CurrentPosition = Position.Up;
+                    break;
+                case 'v':
+                    CurrentPosition = Position.Down;
+                    break;
+            }
+            CurrentMemory = Memory.Left;
+        }
+
+        public Memory GetNextMemory()
+        {
+            var oldMemory = CurrentMemory;
+            switch (CurrentMemory)
+            {
+                case Memory.Left:
+                    CurrentMemory = Memory.Straight;
+                    break;
+                case Memory.Straight:
+                    CurrentMemory = Memory.Right;
+                    break;
+                case Memory.Right:
+                    CurrentMemory = Memory.Left;
+                    break;
+                default:
+                    throw new Exception("wtf");
+            }
+            return oldMemory;
+        }
+        
+    }
+
     
+
+    public class Map
+    {
+        Dictionary<(int x, int y), Cart> Carts = new Dictionary<(int x, int y), Cart>();
+        char[,] grid = new char[150, 150];
+
+        public void Load()
+        {
+            char[] carts = "^v><".ToCharArray();
+            StreamReader file = new StreamReader(@"C:\Users\srdecny\Documents\input.txt");
+            int y = 0;
+            while (!file.EndOfStream)
+            {
+                string line = file.ReadLine();
+                line.Select((symbol, x) => new { symbol, x }).ToList().ForEach(character =>
+                {
+                    if (carts.Contains(character.symbol))
+                    {
+                        Carts.Add((character.x, y), new Cart(character.symbol));
+                        if (character.symbol == '^' || character.symbol == 'v') grid[character.x, y] = '|';
+                        else grid[character.x, y] = '-';
+                    }
+                    else
+                    {
+                        grid[character.x, y] = character.symbol;
+                    }
+                });
+                y++;
+            }
+        }
+
+        public void RunSimulation()
+        {
+            for (int iter = 0; iter < 10000; iter++)
+            {
+                Dictionary<(int x, int y), Cart> movingCarts = new Dictionary<(int x, int y), Cart>();
+                foreach (var cart in Carts) movingCarts.Add(cart.Key, cart.Value);
+                foreach (var cart in Carts.OrderBy(x => x.Key.y).ThenBy(x => x.Key.x))
+                {
+                    char currentTrack = grid[cart.Key.x, cart.Key.y];
+                    (int x, int y) newCoords = (-1, -1);
+                    switch (currentTrack)
+                    {
+                        case '|':
+                            if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
+                            else newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
+                            break;
+                        case '-':
+                            if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
+                            else newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
+                            break;
+                        case '/':
+                            if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
+                            else if (cart.Value.CurrentPosition == Cart.Position.Down) newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
+                            else if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
+                            else if (cart.Value.CurrentPosition == Cart.Position.Left) newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
+                            break;
+                        case '\\':
+                            if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
+                            else if (cart.Value.CurrentPosition == Cart.Position.Down) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
+                            else if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
+                            else if (cart.Value.CurrentPosition == Cart.Position.Left) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
+                            break;
+                        case '+':
+                            switch (cart.Value.GetNextMemory())
+                            {
+                                case Cart.Memory.Straight:
+                                   newCoords = MoveCart(cart.Value.CurrentPosition, cart.Value, cart.Key);
+                                    break;
+                                case Cart.Memory.Left:
+                                    if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
+                                    else if (cart.Value.CurrentPosition == Cart.Position.Down) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
+                                    else if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
+                                    else if (cart.Value.CurrentPosition == Cart.Position.Left) newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
+                                    break;
+                                case Cart.Memory.Right:
+                                    if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
+                                    else if (cart.Value.CurrentPosition == Cart.Position.Down) newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
+                                    else if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
+                                    else if (cart.Value.CurrentPosition == Cart.Position.Left) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
+                                    break;
+                            }
+                            break;
+                        default:
+                            //throw new Exception("wtf");
+                            break;
+                    }
+
+                    if (grid[newCoords.x, newCoords.y] == ' ')
+                    {
+                        
+                    }
+                    if (movingCarts.Keys.Contains(newCoords))
+                    {
+                        Console.WriteLine("Crash at: ", newCoords);
+                        PrintMap(newCoords);
+                        ;
+                    }
+                    else
+                    {
+                        movingCarts.Remove(cart.Key);
+                        movingCarts.Add(newCoords, cart.Value);
+                    }
+                }
+
+                Carts = movingCarts;
+            }
+        }
+
+        public static (int x, int y) MoveCart(Cart.Position direction, Cart cart, (int x, int y) coords)
+        {
+            switch (direction)
+            {
+                case Cart.Position.Up:
+                    cart.CurrentPosition = Cart.Position.Up;
+                    return (coords.x, coords.y -1);
+                case Cart.Position.Down:
+                    cart.CurrentPosition = Cart.Position.Down;
+                    return (coords.x, coords.y + 1);
+                case Cart.Position.Left:
+                    cart.CurrentPosition = Cart.Position.Left;
+                    return (coords.x - 1, coords.y);
+                case Cart.Position.Right:
+                    cart.CurrentPosition = Cart.Position.Right;
+                    return (coords.x + 1, coords.y);
+                default:
+                    return (-1, -1);
+            }
+        }
+
+        public void PrintMap((int x, int y) coords )
+        {
+            for (int y = 0; y < 150; y++)
+            {
+                for (int x = 0; x < 150; x++)
+                {
+                    if (coords.x == x && coords.y == y) Console.BackgroundColor = ConsoleColor.Yellow;
+
+                    if (Carts.ContainsKey((x, y)))
+                    {
+                        if (!(Console.BackgroundColor == ConsoleColor.Yellow)) Console.BackgroundColor = ConsoleColor.Red;
+                        switch (Carts[(x, y)].CurrentPosition)
+                        {
+                            case Cart.Position.Down:
+                                Console.Write("v");
+                                break;
+                            case Cart.Position.Up:
+                                Console.Write("^");
+                                break;
+                            case Cart.Position.Left:
+                                Console.Write("<");
+                                break;
+                            case Cart.Position.Right:
+                                Console.Write(">");
+                                break;
+
+                        }
+                    }
+                    else
+                    {
+                        Console.Write(grid[x, y]);
+                    }
+                    Console.ResetColor();
+
+                }
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+        }
+        
+    }
 }
 
