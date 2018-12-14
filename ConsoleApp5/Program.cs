@@ -15,268 +15,70 @@ namespace ConsoleApp5
 
         static void Main(string[] args)
         {
-            Map map = new Map();
-            map.Load();
-            map.RunSimulation();
-            Console.WriteLine("END");
-            Console.ReadLine();
-        }
+            long limit = 59414;
+            long bufferSize = limit.ToString().Count();
+            long[] buffer = new long[bufferSize];
 
-    }
+            Dictionary<long, HashSet<long>> recipes = new Dictionary<long, HashSet<long>>();
+            for (long i = 0; i < 10; i++) recipes.Add(i, new HashSet<long>());
 
-    public class Cart
-    {
-        public enum Memory { Left, Straight, Right };
-        public enum Position { Up, Down, Left, Right};
-        
-        // HACK HACK HACK
-        public int Id { get; set; }
+            long firstElf = 0;
+            long secondElf = 1;
+            long recipeCount = 2;
 
-        public Position CurrentPosition { get; set; }
-        public Memory CurrentMemory { get; set; }
 
-        public Cart(char position, int id)
-        {
-            Id = id;
-            switch (position)
+            recipes[3].Add(0);
+            recipes[7].Add(1);
+
+            for (long i = 0; i < 1_000_000_000; i++)
             {
-                case '>':
-                    CurrentPosition = Position.Right;
-                    break;
-                case '<':
-                    CurrentPosition = Position.Left;
-                    break;
-                case '^':
-                    CurrentPosition = Position.Up;
-                    break;
-                case 'v':
-                    CurrentPosition = Position.Down;
-                    break;
-            }
-            CurrentMemory = Memory.Left;
-        }
-
-        public Memory GetNextMemory()
-        {
-            var oldMemory = CurrentMemory;
-            switch (CurrentMemory)
-            {
-                case Memory.Left:
-                    CurrentMemory = Memory.Straight;
-                    break;
-                case Memory.Straight:
-                    CurrentMemory = Memory.Right;
-                    break;
-                case Memory.Right:
-                    CurrentMemory = Memory.Left;
-                    break;
-                default:
-                    throw new Exception("wtf");
-            }
-            return oldMemory;
-        }
-        
-    }
-
-    
-
-    public class Map
-    {
-        Dictionary<(int x, int y), Cart> Carts = new Dictionary<(int x, int y), Cart>();
-        char[,] grid = new char[150, 150];
-
-        public void Load()
-        {
-            char[] carts = "^v><".ToCharArray();
-            StreamReader file = new StreamReader(@"C:\Users\srdecny\Documents\input.txt");
-            int y = 0;
-            int id = 0;
-            while (!file.EndOfStream)
-            {
-                string line = file.ReadLine();
-                line.Select((symbol, x) => new { symbol, x }).ToList().ForEach(character =>
+                long firstScore = recipes.First(x => x.Value.Contains(firstElf)).Key;
+                long secondScore = recipes.First(x => x.Value.Contains(secondElf)).Key;
+                foreach (char c in (firstScore + secondScore).ToString())
                 {
-                    if (carts.Contains(character.symbol))
-                    {
-                        Carts.Add((character.x, y), new Cart(character.symbol, id));
-                        id++;
-                        if (character.symbol == '^' || character.symbol == 'v') grid[character.x, y] = '|';
-                        else grid[character.x, y] = '-';
-                    }
-                    else
-                    {
-                        grid[character.x, y] = character.symbol;
-                    }
-                });
-                y++;
-            }
-        }
+                    recipes[Int64.Parse(c.ToString())].Add(recipeCount);
+                    LeftShiftArray(buffer, 1);
+                    buffer[bufferSize - 1] = Int64.Parse(c.ToString());
+                    recipeCount++;
 
-        public void RunSimulation()
-        {
-            for (int iter = 0; iter < 100000; iter++)
-            {
-                if (Carts.Count() == 1)
-                {
-                    ;
-                }
-                Dictionary<(int x, int y), Cart> movingCarts = new Dictionary<(int x, int y), Cart>();
-                HashSet<int> cartsToRemove = new HashSet<int>();
-                foreach (var cart in Carts) movingCarts.Add(cart.Key, cart.Value);
-                foreach (var cart in Carts.OrderBy(x => x.Key.y).ThenBy(x => x.Key.x))
-                {
-                    char currentTrack = grid[cart.Key.x, cart.Key.y];
-                    (int x, int y) newCoords = (-1, -1);
-                    switch (currentTrack)
+                    long bufferSum = 0;
+                    char[] numbersArray = limit.ToString().ToCharArray();
+                    if (numbersArray.Contains(c))
                     {
-                        case '|':
-                            if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
-                            else newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
-                            break;
-                        case '-':
-                            if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
-                            else newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
-                            break;
-                        case '/':
-                            if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
-                            else if (cart.Value.CurrentPosition == Cart.Position.Down) newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
-                            else if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
-                            else if (cart.Value.CurrentPosition == Cart.Position.Left) newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
-                            break;
-                        case '\\':
-                            if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
-                            else if (cart.Value.CurrentPosition == Cart.Position.Down) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
-                            else if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
-                            else if (cart.Value.CurrentPosition == Cart.Position.Left) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
-                            break;
-                        case '+':
-                            switch (cart.Value.GetNextMemory())
-                            {
-                                case Cart.Memory.Straight:
-                                   newCoords = MoveCart(cart.Value.CurrentPosition, cart.Value, cart.Key);
-                                    break;
-                                case Cart.Memory.Left:
-                                    if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
-                                    else if (cart.Value.CurrentPosition == Cart.Position.Down) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
-                                    else if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
-                                    else if (cart.Value.CurrentPosition == Cart.Position.Left) newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
-                                    break;
-                                case Cart.Memory.Right:
-                                    if (cart.Value.CurrentPosition == Cart.Position.Up) newCoords = MoveCart(Cart.Position.Right, cart.Value, cart.Key);
-                                    else if (cart.Value.CurrentPosition == Cart.Position.Down) newCoords = MoveCart(Cart.Position.Left, cart.Value, cart.Key);
-                                    else if (cart.Value.CurrentPosition == Cart.Position.Right) newCoords = MoveCart(Cart.Position.Down, cart.Value, cart.Key);
-                                    else if (cart.Value.CurrentPosition == Cart.Position.Left) newCoords = MoveCart(Cart.Position.Up, cart.Value, cart.Key);
-                                    break;
-                            }
-                            break;
-                        default:
-                            //throw new Exception("wtf");
-                            break;
-                    }
-
-                    if (grid[newCoords.x, newCoords.y] == ' ')
-                    {
-                        PrintMap(newCoords);
-                        ;
-                    }
-                    // someone crashed into me
-                    if (!(movingCarts.Keys.Contains(cart.Key)))
-                    {
-                        ; // already removed from the map
-                    }
-                    // crashed into someone
-                    else if (movingCarts.Keys.Contains(newCoords))
-                    {
-                        movingCarts.Remove(cart.Key);
-                        movingCarts.Remove(newCoords);
-                    }
-                    // not crashed into anybody
-                    else
-                    {
-                        movingCarts.Remove(cart.Key);
-                        movingCarts.Add(newCoords, cart.Value);
-                    }
-                }
-
-                if ((Carts.Count() - movingCarts.Count()) % 2 != 0)
-                {
-                    PrintMap((-1, -1));
-                    ;
-
-                }
-                Carts = movingCarts;
-                if (Carts.Count == 1)
-                {
-                    // 80, 39 | 81,39
-                    Console.WriteLine(Carts.First().Key);
-                    break;
-                }
-            }
-            ;
-
-        }
-
-        public static (int x, int y) MoveCart(Cart.Position direction, Cart cart, (int x, int y) coords)
-        {
-            switch (direction)
-            {
-                case Cart.Position.Up:
-                    cart.CurrentPosition = Cart.Position.Up;
-                    return (coords.x, coords.y -1);
-                case Cart.Position.Down:
-                    cart.CurrentPosition = Cart.Position.Down;
-                    return (coords.x, coords.y + 1);
-                case Cart.Position.Left:
-                    cart.CurrentPosition = Cart.Position.Left;
-                    return (coords.x - 1, coords.y);
-                case Cart.Position.Right:
-                    cart.CurrentPosition = Cart.Position.Right;
-                    return (coords.x + 1, coords.y);
-                default:
-                    return (-1, -1);
-            }
-        }
-
-        public void PrintMap((int x, int y) coords )
-        {
-            for (int y = 0; y < 150; y++)
-            {
-                for (int x = 0; x < 150; x++)
-                {
-                    if (coords.x == x && coords.y == y) Console.BackgroundColor = ConsoleColor.Yellow;
-
-                    if (Carts.ContainsKey((x, y)))
-                    {
-                        if (!(Console.BackgroundColor == ConsoleColor.Yellow)) Console.BackgroundColor = ConsoleColor.Red;
-                        switch (Carts[(x, y)].CurrentPosition)
+                        for (long b = 0; b < bufferSize; b++)
                         {
-                            case Cart.Position.Down:
-                                Console.Write("v");
-                                break;
-                            case Cart.Position.Up:
-                                Console.Write("^");
-                                break;
-                            case Cart.Position.Left:
-                                Console.Write("<");
-                                break;
-                            case Cart.Position.Right:
-                                Console.Write(">");
-                                break;
-
+                            bufferSum += buffer[b] * (long)Math.Pow(10, (bufferSize - b - 1));
+                        }
+                        if (bufferSum == limit)
+                        {
+                            Console.WriteLine(recipeCount - bufferSize);
+                            goto EXIT;
                         }
                     }
-                    else
-                    {
-                        Console.Write(grid[x, y]);
-                    }
-                    Console.ResetColor();
-
                 }
-                Console.WriteLine();
+
+                firstElf = (firstElf + firstScore + 1 ) % recipeCount;
+                secondElf = (secondElf + secondScore + 1) % recipeCount;
+
             }
+            EXIT:
             Console.WriteLine();
+            Console.WriteLine("Finished . . .");
+            Console.ReadLine();
+
         }
-        
+
+        // https://stackoverflow.com/a/38483135
+        public static void LeftShiftArray<T>(T[] arr, long shift)
+        {
+            shift = shift % arr.Length;
+            T[] buffer = new T[shift];
+            Array.Copy(arr, buffer, shift);
+            Array.Copy(arr, shift, arr, 0, arr.Length - shift);
+            Array.Copy(buffer, 0, arr, arr.Length - shift, shift);
+        }
+
     }
+
 }
 
