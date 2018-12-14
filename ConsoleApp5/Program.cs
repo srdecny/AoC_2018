@@ -28,12 +28,16 @@ namespace ConsoleApp5
     {
         public enum Memory { Left, Straight, Right };
         public enum Position { Up, Down, Left, Right};
+        
+        // HACK HACK HACK
+        public int Id { get; set; }
 
         public Position CurrentPosition { get; set; }
         public Memory CurrentMemory { get; set; }
 
-        public Cart(char position)
+        public Cart(char position, int id)
         {
+            Id = id;
             switch (position)
             {
                 case '>':
@@ -86,6 +90,7 @@ namespace ConsoleApp5
             char[] carts = "^v><".ToCharArray();
             StreamReader file = new StreamReader(@"C:\Users\srdecny\Documents\input.txt");
             int y = 0;
+            int id = 0;
             while (!file.EndOfStream)
             {
                 string line = file.ReadLine();
@@ -93,7 +98,8 @@ namespace ConsoleApp5
                 {
                     if (carts.Contains(character.symbol))
                     {
-                        Carts.Add((character.x, y), new Cart(character.symbol));
+                        Carts.Add((character.x, y), new Cart(character.symbol, id));
+                        id++;
                         if (character.symbol == '^' || character.symbol == 'v') grid[character.x, y] = '|';
                         else grid[character.x, y] = '-';
                     }
@@ -108,9 +114,14 @@ namespace ConsoleApp5
 
         public void RunSimulation()
         {
-            for (int iter = 0; iter < 10000; iter++)
+            for (int iter = 0; iter < 100000; iter++)
             {
+                if (Carts.Count() == 1)
+                {
+                    ;
+                }
                 Dictionary<(int x, int y), Cart> movingCarts = new Dictionary<(int x, int y), Cart>();
+                HashSet<int> cartsToRemove = new HashSet<int>();
                 foreach (var cart in Carts) movingCarts.Add(cart.Key, cart.Value);
                 foreach (var cart in Carts.OrderBy(x => x.Key.y).ThenBy(x => x.Key.x))
                 {
@@ -165,14 +176,21 @@ namespace ConsoleApp5
 
                     if (grid[newCoords.x, newCoords.y] == ' ')
                     {
-                        
-                    }
-                    if (movingCarts.Keys.Contains(newCoords))
-                    {
-                        Console.WriteLine("Crash at: ", newCoords);
                         PrintMap(newCoords);
                         ;
                     }
+                    // someone crashed into me
+                    if (!(movingCarts.Keys.Contains(cart.Key)))
+                    {
+                        ; // already removed from the map
+                    }
+                    // crashed into someone
+                    else if (movingCarts.Keys.Contains(newCoords))
+                    {
+                        movingCarts.Remove(cart.Key);
+                        movingCarts.Remove(newCoords);
+                    }
+                    // not crashed into anybody
                     else
                     {
                         movingCarts.Remove(cart.Key);
@@ -180,8 +198,22 @@ namespace ConsoleApp5
                     }
                 }
 
+                if ((Carts.Count() - movingCarts.Count()) % 2 != 0)
+                {
+                    PrintMap((-1, -1));
+                    ;
+
+                }
                 Carts = movingCarts;
+                if (Carts.Count == 1)
+                {
+                    // 80, 39 | 81,39
+                    Console.WriteLine(Carts.First().Key);
+                    break;
+                }
             }
+            ;
+
         }
 
         public static (int x, int y) MoveCart(Cart.Position direction, Cart cart, (int x, int y) coords)
