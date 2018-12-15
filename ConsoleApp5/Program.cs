@@ -39,19 +39,6 @@ namespace ConsoleApp5
             else return CreatureType.Elf;
         }
 
-        public override int GetHashCode()
-        {
-            return Coords.GetHashCode();
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (!(obj is Unit)) return false;
-
-            Unit otherUnit = (Unit)obj;
-            return (Coords.Equals(otherUnit.Coords)) && (Type == otherUnit.Type);
-        }
-
     }
     public struct Coords
     {
@@ -63,21 +50,6 @@ namespace ConsoleApp5
             Y = y;
         }
 
-        public override int GetHashCode()
-        {
-            // https://stackoverflow.com/a/682481/5127149
-            return ((Y << 16) ^ X);
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (!(obj is Coords)) return false;
-
-            Coords otherCoords = (Coords)obj;
-            return (X == otherCoords.X && Y == otherCoords.Y);
-
-        }
-
     }
 
     public class Map
@@ -86,6 +58,9 @@ namespace ConsoleApp5
         HashSet<Unit> Goblins = new HashSet<Unit>();
         HashSet<Coords> Walls = new HashSet<Coords>();
         HashSet<Coords> Airs = new HashSet<Coords>();
+
+        public int maxX;
+        public int maxY;
 
         public void Load()
         {
@@ -117,6 +92,8 @@ namespace ConsoleApp5
                 }
                 y++;
             }
+            maxX = Walls.Max(wall => wall.X);
+            maxY = Walls.Max(wall => wall.Y);
         }
 
         public void ProcessBattle()
@@ -138,7 +115,7 @@ namespace ConsoleApp5
                             var newCoords = BreadthFirstSearch(unit.Coords, enemyType);
                             if (newCoords.Count() > 0)
                             {
-                                //PrintMap(newCoords.First().X, newCoords.First().Y);
+                                PrintMap(newCoords.First().X, newCoords.First().Y);
                                 Airs.Remove(newCoords.First());
                                 Airs.Add(unit.Coords);
                                 unit.Coords = newCoords.First();
@@ -184,10 +161,10 @@ namespace ConsoleApp5
         private HashSet<Coords> GetNeighbours(Coords coords)
         {
             HashSet<Coords> neighbours = new HashSet<Coords>();
-            neighbours.Add(new Coords(coords.X, coords.Y-1));
-            neighbours.Add(new Coords(coords.X- 1, coords.Y));
-            neighbours.Add(new Coords(coords.X + 1, coords.Y));
-            neighbours.Add(new Coords(coords.X, coords.Y +1));
+            if (coords.Y - 1 >= 0) neighbours.Add(new Coords(coords.X, coords.Y-1));
+            if (coords.X - 1 >= 0) neighbours.Add(new Coords(coords.X - 1, coords.Y));
+            if (coords.X + 1 < maxX) neighbours.Add(new Coords(coords.X + 1, coords.Y));
+            if (coords.Y + 1 < maxY) neighbours.Add(new Coords(coords.X, coords.Y + 1));
             return neighbours;
         }
 
@@ -199,7 +176,7 @@ namespace ConsoleApp5
 
         private List<Coords> BreadthFirstSearch(Coords start, Unit.CreatureType enemyType)
         {
-            HashSet<Coords> searchedCoords = new HashSet<Coords>();
+            bool[,] searchedCoords = new bool[maxX, maxY];
             Dictionary<Coords, Coords> shortestDistance = new Dictionary<Coords, Coords>();
             Queue<Coords> searchQueue = new Queue<Coords>();
             var enemyHashSet = GetAliveUnits(enemyType);
@@ -208,12 +185,12 @@ namespace ConsoleApp5
             while (searchQueue.Any())
             {
                 var currentCoord = searchQueue.Dequeue();
-                searchedCoords.Add(currentCoord);
+                searchedCoords[currentCoord.X, currentCoord.Y] = true;
 
                 List<Coords> potentialGoals = new List<Coords>();
                 foreach (var neighbour in GetNeighbours(currentCoord))
                 {
-                    if (!searchedCoords.Contains(neighbour) && Airs.Contains(neighbour))
+                    if (searchedCoords[neighbour.X, neighbour.Y] == false && Airs.Contains(neighbour))
                     {
                         searchQueue.Enqueue(neighbour);
                         if (!shortestDistance.ContainsKey(neighbour)) shortestDistance.Add(neighbour, currentCoord);
