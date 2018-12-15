@@ -83,6 +83,11 @@ namespace ConsoleApp5
             return (X == otherCoords.X && Y == otherCoords.Y);
 
         }
+
+        public static Coords GetDefaultCoords()
+        {
+            return new Coords(-1, -1);
+        }
     }
 
     public class Map
@@ -94,14 +99,16 @@ namespace ConsoleApp5
         public int maxY;
 
         char[,] grid;
+        Dictionary<Coords, List<Coords>> neighbours = new Dictionary<Coords, List<Coords>>();
 
         public Map()
         {
-            maxY = File.ReadLines(@"C:\Users\Vojta\Documents\input.txt").Count();
-            maxX = new StreamReader(@"C:\Users\Vojta\Documents\input.txt").ReadLine().Count();
+            string input = @"C:\Users\Vojta\Documents\input.txt";
+            maxY = File.ReadLines(input).Count();
+            maxX = new StreamReader(input).ReadLine().Count();
 
             grid = new char[maxX, maxY];
-            var file = new StreamReader(@"C:\Users\Vojta\Documents\input.txt");
+            var file = new StreamReader(input);
             int y = 0;
             while (!file.EndOfStream)
             {
@@ -109,6 +116,7 @@ namespace ConsoleApp5
                 foreach (var c in line.Select((character, x) => new {character, x}))
                 {
                     var coords = new Coords(c.x, y);
+                    neighbours.Add(coords, GetNeighbours(coords));
                     switch (c.character)
                     {
                         case 'E':
@@ -136,30 +144,37 @@ namespace ConsoleApp5
         public void ProcessBattle()
         {
             int rounds = 0;
+            bool fastForward = false;
             while (true)
             {
+                bool hasMoved = false;
                 foreach (var unit in Elves.Concat(Goblins).OrderBy(x => x.Coords.Y).ThenBy(x => x.Coords.X))
                 {
                     if (unit.isAlive)
                     {
                         var enemyType = Unit.GetEnemy(unit.Type);
+                        List<Coords> enemiesInRange;
                         if (GetAliveUnits(enemyType).Count == 0) goto EXIT;
-                        
-                        // attacking?
-                        var enemiesInRange = GetEnemyInRange(unit.Coords, enemyType);
-                        if (enemiesInRange.Count == 0)
+                        if (!fastForward) // no movement, only combat
                         {
-                            var newCoords = BreadthFirstSearch(unit.Coords, enemyType);
-                            if (newCoords.Count() > 0)
+                            // attacking?
+                            enemiesInRange = GetEnemyInRange(unit.Coords, enemyType);
+                            if (enemiesInRange.Count == 0)
                             {
-                                var coords = newCoords.First();
-                                //PrintMap(newCoords.First().X, newCoords.First().Y);
-                                grid[unit.Coords.X, unit.Coords.Y] = '.';
-                                unit.Coords = newCoords.First();
-                                grid[coords.X, coords.Y] = Unit.GetCreatureChar(unit.Type);
+                                var newCoords = BreadthFirstSearch(unit.Coords, enemyType);
+                                if (newCoords.Count() > 0)
+                                {
+                                    var coords = newCoords.First();
+                                    // PrintMap(newCoords.First().X, newCoords.First().Y);
+                                    grid[unit.Coords.X, unit.Coords.Y] = '.';
+                                    unit.Coords = newCoords.First();
+                                    grid[coords.X, coords.Y] = Unit.GetCreatureChar(unit.Type);
+                                    hasMoved = true;
+                                }
+
                             }
-                            
                         }
+
                         enemiesInRange = GetEnemyInRange(unit.Coords, enemyType);
                         if (enemiesInRange.Count > 0)
                         {
@@ -170,11 +185,17 @@ namespace ConsoleApp5
                                 grid[combatTarget.Coords.X, combatTarget.Coords.Y] = '.';
                                 GetAliveUnits(enemyType).Remove(combatTarget);
                                 combatTarget.isAlive = false;
+                                fastForward = false;
+                                hasMoved = true;
                             }
                         }
                     }
                 }
+
+                fastForward = !hasMoved;
+                if (fastForward) Console.Write("Fast forwarding... ");
                 Console.WriteLine(rounds);
+                //PrintMap();
                 rounds++;
             }
             EXIT:
@@ -183,6 +204,7 @@ namespace ConsoleApp5
             Console.ReadLine();
             // 281400 high
             // 260712 high
+            // 191088 low
 
 
         }
@@ -194,16 +216,6 @@ namespace ConsoleApp5
             return GetAliveUnits(enemyType).Select(x => x.Coords).Intersect(neighbours).ToList();
         }
 
-        private HashSet<Coords> GetNeighbours(Coords coords)
-        {
-            HashSet<Coords> neighbours = new HashSet<Coords>();
-            if (coords.Y - 1 >= 0) neighbours.Add(new Coords(coords.X, coords.Y-1));
-            if (coords.X - 1 >= 0) neighbours.Add(new Coords(coords.X - 1, coords.Y));
-            if (coords.X + 1 < maxX) neighbours.Add(new Coords(coords.X + 1, coords.Y));
-            if (coords.Y + 1 < maxY) neighbours.Add(new Coords(coords.X, coords.Y + 1));
-            return neighbours;
-        }
-
         private HashSet<Unit> GetAliveUnits(Unit.CreatureType type)
         {
             if (type == Unit.CreatureType.Elf) return new HashSet<Unit>(Elves.Where(x => x.isAlive));
@@ -213,6 +225,7 @@ namespace ConsoleApp5
         private List<Coords> BreadthFirstSearch(Coords start, Unit.CreatureType enemyType)
         {
             bool[,] searchedCoords = new bool[maxX, maxY];
+            bool[,] toBeSearched = new bool[maxX, maxY];
             Dictionary<Coords, Coords> shortestDistance = new Dictionary<Coords, Coords>();
             Queue<Coords> searchQueue = new Queue<Coords>();
 
@@ -223,13 +236,17 @@ namespace ConsoleApp5
                 searchedCoords[currentCoord.X, currentCoord.Y] = true;
 
                 List<Coords> potentialGoals = new List<Coords>();
-                foreach (var neighbour in GetNeighbours(currentCoord))
+                foreach (var neighbour in neighbours[currentCoord])
                 {
-                    if (searchedCoords[neighbour.X, neighbour.Y] == false && grid[neighbour.X, neighbour.Y] == '.')
+                    if (searchedCoords[neighbour.X, neighbour.Y] == false &&
+                        grid[neighbour.X, neighbour.Y] == '.' &&
+                        toBeSearched[neighbour.X, neighbour.Y] == false)
                     {
                         searchQueue.Enqueue(neighbour);
+                        toBeSearched[neighbour.X, neighbour.Y] = true;
+
                         if (!shortestDistance.ContainsKey(neighbour)) shortestDistance.Add(neighbour, currentCoord);
-                        foreach (var potentialEnemy in GetNeighbours(neighbour))
+                        foreach (var potentialEnemy in neighbours[neighbour])
                         {
                             if (grid[potentialEnemy.X, potentialEnemy.Y] == Unit.GetCreatureChar(enemyType)) potentialGoals.Add(neighbour);
                         }
@@ -282,6 +299,17 @@ namespace ConsoleApp5
             }
             Console.WriteLine();
         }
+
+        private List<Coords> GetNeighbours(Coords coords)
+        {
+            List<Coords> neighbours = new List<Coords>();
+            if (coords.Y - 1 >= 0) neighbours.Add(new Coords(coords.X, coords.Y - 1));
+            if (coords.X - 1 >= 0) neighbours.Add(new Coords(coords.X - 1, coords.Y));
+            if (coords.X + 1 < maxX) neighbours.Add(new Coords(coords.X + 1, coords.Y));
+            if (coords.Y + 1 < maxY) neighbours.Add(new Coords(coords.X, coords.Y + 1));
+            return neighbours;
+        }
+
 
     }
 
