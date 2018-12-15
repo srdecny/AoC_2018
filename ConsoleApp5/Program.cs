@@ -14,7 +14,6 @@ namespace ConsoleApp5
         static void Main(string[] args)
         {
             Map map = new Map();
-            map.Load();
             map.ProcessBattle();
         }
 
@@ -39,6 +38,26 @@ namespace ConsoleApp5
             else return CreatureType.Elf;
         }
 
+        public static char GetCreatureChar(CreatureType type)
+        {
+            if (type == CreatureType.Elf) return 'E';
+            else return 'G';
+
+        }
+
+        public override int GetHashCode()
+        {
+            return Coords.GetHashCode();
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is Unit)) return false;
+
+            Unit otherUnit = (Unit)obj;
+            return (Coords.Equals(otherUnit.Coords)) && (Type == otherUnit.Type);
+        }
+
     }
     public struct Coords
     {
@@ -50,20 +69,38 @@ namespace ConsoleApp5
             Y = y;
         }
 
+        public override int GetHashCode()
+        {
+            // https://stackoverflow.com/a/682481/5127149
+            return ((Y << 16) ^ X);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is Coords)) return false;
+
+            Coords otherCoords = (Coords)obj;
+            return (X == otherCoords.X && Y == otherCoords.Y);
+
+        }
     }
 
     public class Map
     {
         HashSet<Unit> Elves = new HashSet<Unit>();
         HashSet<Unit> Goblins = new HashSet<Unit>();
-        HashSet<Coords> Walls = new HashSet<Coords>();
-        HashSet<Coords> Airs = new HashSet<Coords>();
 
         public int maxX;
         public int maxY;
 
-        public void Load()
+        char[,] grid;
+
+        public Map()
         {
+            maxY = File.ReadLines(@"C:\Users\Vojta\Documents\input.txt").Count();
+            maxX = new StreamReader(@"C:\Users\Vojta\Documents\input.txt").ReadLine().Count();
+
+            grid = new char[maxX, maxY];
             var file = new StreamReader(@"C:\Users\Vojta\Documents\input.txt");
             int y = 0;
             while (!file.EndOfStream)
@@ -76,15 +113,17 @@ namespace ConsoleApp5
                     {
                         case 'E':
                             Elves.Add(new Unit(coords, Unit.CreatureType.Elf));
+                            grid[c.x, y] = 'E';
                             break;
                         case 'G':
                             Goblins.Add(new Unit(coords, Unit.CreatureType.Goblin));
+                            grid[c.x, y] = 'G';
                             break;
                         case '.':
-                            Airs.Add(coords);
+                            grid[c.x, y] = '.';
                             break;
                         case '#':
-                            Walls.Add(coords);
+                            grid[c.x, y] = '#';
                             break;
                         default:
                             throw new Exception("wtf");
@@ -92,8 +131,6 @@ namespace ConsoleApp5
                 }
                 y++;
             }
-            maxX = Walls.Max(wall => wall.X);
-            maxY = Walls.Max(wall => wall.Y);
         }
 
         public void ProcessBattle()
@@ -115,10 +152,11 @@ namespace ConsoleApp5
                             var newCoords = BreadthFirstSearch(unit.Coords, enemyType);
                             if (newCoords.Count() > 0)
                             {
-                                PrintMap(newCoords.First().X, newCoords.First().Y);
-                                Airs.Remove(newCoords.First());
-                                Airs.Add(unit.Coords);
+                                var coords = newCoords.First();
+                                //PrintMap(newCoords.First().X, newCoords.First().Y);
+                                grid[unit.Coords.X, unit.Coords.Y] = '.';
                                 unit.Coords = newCoords.First();
+                                grid[coords.X, coords.Y] = Unit.GetCreatureChar(unit.Type);
                             }
                             
                         }
@@ -129,7 +167,7 @@ namespace ConsoleApp5
                             combatTarget.Hitpoints -= 3;
                             if (combatTarget.Hitpoints < 0)
                             {
-                                Airs.Add(combatTarget.Coords);
+                                grid[combatTarget.Coords.X, combatTarget.Coords.Y] = '.';
                                 GetAliveUnits(enemyType).Remove(combatTarget);
                                 combatTarget.isAlive = false;
                             }
@@ -137,13 +175,11 @@ namespace ConsoleApp5
                     }
                 }
                 Console.WriteLine(rounds);
-                PrintMap();
                 rounds++;
             }
             EXIT:
             int hitpointsLeft = GetAliveUnits(Unit.CreatureType.Elf).Concat(GetAliveUnits(Unit.CreatureType.Goblin)).Sum(x => x.Hitpoints);
             Console.WriteLine(hitpointsLeft * rounds);
-            PrintMap();
             Console.ReadLine();
             // 281400 high
             // 260712 high
@@ -179,7 +215,6 @@ namespace ConsoleApp5
             bool[,] searchedCoords = new bool[maxX, maxY];
             Dictionary<Coords, Coords> shortestDistance = new Dictionary<Coords, Coords>();
             Queue<Coords> searchQueue = new Queue<Coords>();
-            var enemyHashSet = GetAliveUnits(enemyType);
 
             searchQueue.Enqueue(start);
             while (searchQueue.Any())
@@ -190,11 +225,14 @@ namespace ConsoleApp5
                 List<Coords> potentialGoals = new List<Coords>();
                 foreach (var neighbour in GetNeighbours(currentCoord))
                 {
-                    if (searchedCoords[neighbour.X, neighbour.Y] == false && Airs.Contains(neighbour))
+                    if (searchedCoords[neighbour.X, neighbour.Y] == false && grid[neighbour.X, neighbour.Y] == '.')
                     {
                         searchQueue.Enqueue(neighbour);
                         if (!shortestDistance.ContainsKey(neighbour)) shortestDistance.Add(neighbour, currentCoord);
-                        if (enemyHashSet.Select(x => x.Coords).Intersect(GetNeighbours(neighbour)).Count() > 0) potentialGoals.Add(neighbour);
+                        foreach (var potentialEnemy in GetNeighbours(neighbour))
+                        {
+                            if (grid[potentialEnemy.X, potentialEnemy.Y] == Unit.GetCreatureChar(enemyType)) potentialGoals.Add(neighbour);
+                        }
                     }
                 }
 
@@ -215,32 +253,28 @@ namespace ConsoleApp5
 
         private void PrintMap(int highlightX = -1, int highlightY = -1)
         {
-            int maxX = Walls.Max(wall => wall.X);
-            int maxY = Walls.Max(wall => wall.Y);
-
-            for (int y = 0; y <= maxY; y++)
+            for (int y = 0; y < maxY; y++)
             {
-                for (int x = 0; x <= maxX; x++)
+                for (int x = 0; x < maxX; x++)
                 {
-                    Coords coords = new Coords(x, y);
-                    if (Walls.Contains(coords))
+                    switch (grid[x, y])
                     {
-                        Console.BackgroundColor = ConsoleColor.Gray;
-                        Console.Write("#");
-                    }
-                    else if (Airs.Contains(coords))
-                    {   if (x == highlightX && y == highlightY) Console.BackgroundColor = ConsoleColor.Yellow;
-                        Console.Write(".");
-                    }
-                    else if (GetAliveUnits(Unit.CreatureType.Elf).Select(e => e.Coords).Contains(coords))
-                    {
-                        Console.BackgroundColor = ConsoleColor.Green;
-                        Console.Write("E");
-                    }
-                    else if (GetAliveUnits(Unit.CreatureType.Goblin).Select(e => e.Coords).Contains(coords))
-                    {
-                        Console.BackgroundColor = ConsoleColor.Red;
-                        Console.Write("G");
+                        case '#':
+                            Console.BackgroundColor = ConsoleColor.Gray;
+                            Console.Write("#");
+                            break;
+                        case '.':
+                            if (x == highlightX && y == highlightY) Console.BackgroundColor = ConsoleColor.Yellow;
+                            Console.Write(".");
+                            break;
+                        case 'E':
+                            Console.BackgroundColor = ConsoleColor.Green;
+                            Console.Write("E");
+                            break;
+                        case 'G':
+                            Console.BackgroundColor = ConsoleColor.Red;
+                            Console.Write("G");
+                            break;
                     }
                     Console.ResetColor();
                 }
