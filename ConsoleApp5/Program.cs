@@ -39,6 +39,19 @@ namespace ConsoleApp5
             else return CreatureType.Elf;
         }
 
+        public override int GetHashCode()
+        {
+            return Coords.GetHashCode();
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is Unit)) return false;
+
+            Unit otherUnit = (Unit)obj;
+            return (Coords.Equals(otherUnit.Coords)) && (Type == otherUnit.Type);
+        }
+
     }
     public struct Coords
     {
@@ -49,6 +62,22 @@ namespace ConsoleApp5
             X = x;
             Y = y;
         }
+
+        public override int GetHashCode()
+        {
+            // https://stackoverflow.com/a/682481/5127149
+            return ((Y << 16) ^ X);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is Coords)) return false;
+
+            Coords otherCoords = (Coords)obj;
+            return (X == otherCoords.X && Y == otherCoords.Y);
+
+        }
+
     }
 
     public class Map
