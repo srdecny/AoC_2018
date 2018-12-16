@@ -13,8 +13,20 @@ namespace ConsoleApp5
 
         static void Main(string[] args)
         {
-            Map map = new Map();
-            map.ProcessBattle();
+            int elfDamage = 4;
+           while (true)
+            {
+                Map map = new Map();
+                int score = map.ProcessBattle(elfDamage);
+                if (score != -1)
+                {
+                    map.PrintMap();
+                    Console.WriteLine(score);
+                    Console.ReadLine();
+                    break;
+               }
+                elfDamage++;
+            }
         }
 
     }
@@ -141,10 +153,11 @@ namespace ConsoleApp5
             }
         }
 
-        public void ProcessBattle()
+        public int ProcessBattle(int elfDamage)
         {
             int rounds = 0;
             bool fastForward = false;
+            bool elfDied = false;
             while (true)
             {
                 bool hasMoved = false;
@@ -179,7 +192,8 @@ namespace ConsoleApp5
                         if (enemiesInRange.Count > 0)
                         {
                             var combatTarget = GetAliveUnits(enemyType).Where(x => enemiesInRange.Contains(x.Coords)).OrderBy(x => x.Hitpoints).First();
-                            combatTarget.Hitpoints -= 3;
+                            if (combatTarget.Type == Unit.CreatureType.Elf) combatTarget.Hitpoints -= 3;
+                            else combatTarget.Hitpoints -= elfDamage;
                             if (combatTarget.Hitpoints < 0)
                             {
                                 grid[combatTarget.Coords.X, combatTarget.Coords.Y] = '.';
@@ -187,6 +201,7 @@ namespace ConsoleApp5
                                 combatTarget.isAlive = false;
                                 fastForward = false;
                                 hasMoved = true;
+                                if (combatTarget.Type == Unit.CreatureType.Elf) elfDied = true;
                             }
                         }
                     }
@@ -194,17 +209,15 @@ namespace ConsoleApp5
 
                 fastForward = !hasMoved;
                 if (fastForward) Console.Write("Fast forwarding... ");
-                Console.WriteLine(rounds);
+                //Console.WriteLine(rounds);
                 //PrintMap();
                 rounds++;
             }
             EXIT:
             int hitpointsLeft = GetAliveUnits(Unit.CreatureType.Elf).Concat(GetAliveUnits(Unit.CreatureType.Goblin)).Sum(x => x.Hitpoints);
-            Console.WriteLine(hitpointsLeft * rounds);
-            Console.ReadLine();
-            // 281400 high
-            // 260712 high
-            // 191088 low
+            if (elfDied) return -1;
+            else return hitpointsLeft * rounds;
+            
 
 
         }
@@ -268,7 +281,7 @@ namespace ConsoleApp5
             return new List<Coords>();
         }
 
-        private void PrintMap(int highlightX = -1, int highlightY = -1)
+        public void PrintMap(int highlightX = -1, int highlightY = -1)
         {
             for (int y = 0; y < maxY; y++)
             {
