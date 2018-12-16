@@ -13,318 +13,212 @@ namespace ConsoleApp5
 
         static void Main(string[] args)
         {
-            int elfDamage = 4;
-           while (true)
-            {
-                Map map = new Map();
-                int score = map.ProcessBattle(elfDamage);
-                if (score != -1)
-                {
-                    map.PrintMap();
-                    Console.WriteLine(score);
-                    Console.ReadLine();
-                    break;
-               }
-                elfDamage++;
-            }
-        }
-
-    }
-
-    public class Unit
-    {
-        public bool isAlive { get; set; } = true;
-        public enum CreatureType { Elf, Goblin }
-        public Coords Coords { get; set; }
-        public CreatureType Type { get; }
-        public int Hitpoints { get; set; } = 200;
-        public Unit(Coords coords, CreatureType type)
-        {
-            Coords = coords;
-            Type = type;
-        }
-
-        public static CreatureType GetEnemy(CreatureType type)
-        {
-            if (type == CreatureType.Elf) return CreatureType.Goblin;
-            else return CreatureType.Elf;
-        }
-
-        public static char GetCreatureChar(CreatureType type)
-        {
-            if (type == CreatureType.Elf) return 'E';
-            else return 'G';
-
-        }
-
-        public override int GetHashCode()
-        {
-            return Coords.GetHashCode();
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (!(obj is Unit)) return false;
-
-            Unit otherUnit = (Unit)obj;
-            return (Coords.Equals(otherUnit.Coords)) && (Type == otherUnit.Type);
-        }
-
-    }
-    public struct Coords
-    {
-        public int X { get; set; }
-        public int Y { get; set; }
-        public Coords(int x, int y)
-        {
-            X = x;
-            Y = y;
-        }
-
-        public override int GetHashCode()
-        {
-            // https://stackoverflow.com/a/682481/5127149
-            return ((Y << 16) ^ X);
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (!(obj is Coords)) return false;
-
-            Coords otherCoords = (Coords)obj;
-            return (X == otherCoords.X && Y == otherCoords.Y);
-
-        }
-
-        public static Coords GetDefaultCoords()
-        {
-            return new Coords(-1, -1);
-        }
-    }
-
-    public class Map
-    {
-        HashSet<Unit> Elves = new HashSet<Unit>();
-        HashSet<Unit> Goblins = new HashSet<Unit>();
-
-        public int maxX;
-        public int maxY;
-
-        char[,] grid;
-        Dictionary<Coords, List<Coords>> neighbours = new Dictionary<Coords, List<Coords>>();
-
-        public Map()
-        {
             string input = @"C:\Users\Vojta\Documents\input.txt";
-            maxY = File.ReadLines(input).Count();
-            maxX = new StreamReader(input).ReadLine().Count();
+            Registry registry = new Registry();
+            registry.DeduceOperations(input);
+        }
 
-            grid = new char[maxX, maxY];
-            var file = new StreamReader(input);
-            int y = 0;
-            while (!file.EndOfStream)
+    }
+
+    class Registry
+    {
+        int A;
+        int B;
+        int C;
+        int D;
+
+        public int this[int i]
+        {
+            get
             {
-                string line = file.ReadLine();
-                foreach (var c in line.Select((character, x) => new { character, x }))
+                switch (i)
                 {
-                    var coords = new Coords(c.x, y);
-                    neighbours.Add(coords, GetNeighbours(coords));
-                    switch (c.character)
-                    {
-                        case 'E':
-                            Elves.Add(new Unit(coords, Unit.CreatureType.Elf));
-                            grid[c.x, y] = 'E';
-                            break;
-                        case 'G':
-                            Goblins.Add(new Unit(coords, Unit.CreatureType.Goblin));
-                            grid[c.x, y] = 'G';
-                            break;
-                        case '.':
-                            grid[c.x, y] = '.';
-                            break;
-                        case '#':
-                            grid[c.x, y] = '#';
-                            break;
-                        default:
-                            throw new Exception("wtf");
-                    }
+                    case 0:
+                        return A;
+                    case 1:
+                        return B;
+                    case 2:
+                        return C;
+                    case 3:
+                        return D;
                 }
-                y++;
+                throw new Exception("wtf");
+            }
+            set
+            {
+                switch (i)
+                {
+                    case 0:
+                        A = value;
+                        break;
+                    case 1:
+                        B = value;
+                        break;
+                    case 2:
+                        C = value;
+                        break;
+                    case 3:
+                        D = value;
+                        break;
+                    default:
+                        throw new Exception("wtf");
+                }
             }
         }
 
-        public int ProcessBattle(int elfDamage)
+        public int[] GetRegistryValues()
         {
-            int rounds = 0;
-            bool fastForward = false;
-            bool elfDied = false;
+            return new int[4] { A, B, C, D };
+        }
+
+        public void SetRegistryValues(int[] values)
+        {
+            A = values[0];
+            B = values[1];
+            C = values[2];
+            D = values[3];
+        }
+
+        public enum Operations { addr, addi, mulr, muli, banr, bani, borr, bori, setr, seti, gtir, gtri, gtrr, eqir, eqri, eqrr }
+
+        public void DeduceOperations(string input)
+        {
+            StreamReader file = new StreamReader(input);
+            Dictionary<int, List<Operations>> deducedOperations = new Dictionary<int, List<Operations>>();
+            for (int i = 0; i < 16; i++)
+            {
+                deducedOperations.Add(i, new List<Operations>());
+                for (int opcode = 0; opcode < 16; opcode++) deducedOperations[i].Add((Operations)opcode);
+            }
+            int moreThanThreeOpcodes = 0;
+            char[] delimiters = "BeforeAfter: [,]".ToCharArray();
             while (true)
             {
-                bool hasMoved = false;
-                foreach (var unit in Elves.Concat(Goblins).OrderBy(x => x.Coords.Y).ThenBy(x => x.Coords.X))
-                {
-                    if (unit.isAlive)
-                    {
-                        var enemyType = Unit.GetEnemy(unit.Type);
-                        List<Coords> enemiesInRange;
-                        if (GetAliveUnits(enemyType).Count == 0) goto EXIT;
-                        if (!fastForward) // no movement, only combat
-                        {
-                            // attacking?
-                            enemiesInRange = GetEnemyInRange(unit.Coords, enemyType);
-                            if (enemiesInRange.Count == 0)
-                            {
-                                var newCoords = BreadthFirstSearch(unit.Coords, enemyType);
-                                if (newCoords.Count() > 0)
-                                {
-                                    var coords = newCoords.First();
-                                    // PrintMap(newCoords.First().X, newCoords.First().Y);
-                                    grid[unit.Coords.X, unit.Coords.Y] = '.';
-                                    unit.Coords = newCoords.First();
-                                    grid[coords.X, coords.Y] = Unit.GetCreatureChar(unit.Type);
-                                    hasMoved = true;
-                                }
+                string before = file.ReadLine();
+                string operation = file.ReadLine();
+                string after = file.ReadLine();
+                file.ReadLine();
 
-                            }
-                        }
+                if (before == "") break;
 
-                        enemiesInRange = GetEnemyInRange(unit.Coords, enemyType);
-                        if (enemiesInRange.Count > 0)
-                        {
-                            var combatTarget = GetAliveUnits(enemyType).Where(x => enemiesInRange.Contains(x.Coords)).OrderBy(x => x.Hitpoints).First();
-                            if (combatTarget.Type == Unit.CreatureType.Elf) combatTarget.Hitpoints -= 3;
-                            else combatTarget.Hitpoints -= elfDamage;
-                            if (combatTarget.Hitpoints < 0)
-                            {
-                                grid[combatTarget.Coords.X, combatTarget.Coords.Y] = '.';
-                                GetAliveUnits(enemyType).Remove(combatTarget);
-                                combatTarget.isAlive = false;
-                                fastForward = false;
-                                hasMoved = true;
-                                if (combatTarget.Type == Unit.CreatureType.Elf) elfDied = true;
-                            }
-                        }
-                    }
-                }
+                int[] intBefore = before.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
+                int[] intOperation = operation.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
+                int[] intAfter = after.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
 
-                fastForward = !hasMoved;
-                if (fastForward) Console.Write("Fast forwarding... ");
-                //Console.WriteLine(rounds);
-                //PrintMap();
-                rounds++;
+                if (analyzeOperation(intBefore, intOperation, intAfter).Count() >= 3) moreThanThreeOpcodes++;
             }
-            EXIT:
-            int hitpointsLeft = GetAliveUnits(Unit.CreatureType.Elf).Concat(GetAliveUnits(Unit.CreatureType.Goblin)).Sum(x => x.Hitpoints);
-            if (elfDied) return -1;
-            else return hitpointsLeft * rounds;
-            
-
+            Console.WriteLine(moreThanThreeOpcodes);
+            Console.ReadLine();
 
         }
 
-        private List<Coords> GetEnemyInRange(Coords coords, Unit.CreatureType enemyType)
+        private List<Operations> analyzeOperation(int[] before, int[] operation, int[] after)
         {
-            List<Coords> result = new List<Coords>();
-            var neighbours = GetNeighbours(coords);
-            return GetAliveUnits(enemyType).Select(x => x.Coords).Intersect(neighbours).ToList();
-        }
+            List<Operations> validOpcodes = new List<Operations>();
 
-        private HashSet<Unit> GetAliveUnits(Unit.CreatureType type)
-        {
-            if (type == Unit.CreatureType.Elf) return new HashSet<Unit>(Elves.Where(x => x.isAlive));
-            else return new HashSet<Unit>(Goblins.Where(x => x.isAlive));
-        }
-
-        private List<Coords> BreadthFirstSearch(Coords start, Unit.CreatureType enemyType)
-        {
-            bool[,] searchedCoords = new bool[maxX, maxY];
-            bool[,] toBeSearched = new bool[maxX, maxY];
-            Dictionary<Coords, Coords> shortestDistance = new Dictionary<Coords, Coords>();
-            Queue<Coords> searchQueue = new Queue<Coords>();
-
-            searchQueue.Enqueue(start);
-            while (searchQueue.Any())
+            foreach (var opcode in Enum.GetValues(typeof(Operations)).Cast<Operations>())
             {
-                var currentCoord = searchQueue.Dequeue();
-                searchedCoords[currentCoord.X, currentCoord.Y] = true;
-
-                List<Coords> potentialGoals = new List<Coords>();
-                foreach (var neighbour in neighbours[currentCoord])
+                if (SanityCheck(opcode, operation))
                 {
-                    if (searchedCoords[neighbour.X, neighbour.Y] == false &&
-                        grid[neighbour.X, neighbour.Y] == '.' &&
-                        toBeSearched[neighbour.X, neighbour.Y] == false)
+                    SetRegistryValues(before);
+                    performOperation(opcode, operation);
+                    if (GetRegistryValues().SequenceEqual(after))
                     {
-                        searchQueue.Enqueue(neighbour);
-                        toBeSearched[neighbour.X, neighbour.Y] = true;
-
-                        if (!shortestDistance.ContainsKey(neighbour)) shortestDistance.Add(neighbour, currentCoord);
-                        foreach (var potentialEnemy in neighbours[neighbour])
-                        {
-                            if (grid[potentialEnemy.X, potentialEnemy.Y] == Unit.GetCreatureChar(enemyType)) potentialGoals.Add(neighbour);
-                        }
+                        validOpcodes.Add(opcode);
                     }
                 }
-
-                if (potentialGoals.Count > 0)
-                {
-                    Coords potentialGoal = potentialGoals.OrderBy(x => x.Y).ThenBy(x => x.X).First();
-                    while (shortestDistance.ContainsKey(potentialGoal) && shortestDistance.ContainsKey(shortestDistance[potentialGoal]))
-                    {
-                        potentialGoal = shortestDistance[potentialGoal];
-                    }
-                    return new List<Coords>() { potentialGoal };
-
-                }
-
             }
-            return new List<Coords>();
+            return validOpcodes;
         }
 
-        public void PrintMap(int highlightX = -1, int highlightY = -1)
+        private void performOperation(Operations operation, int[] values)
         {
-            for (int y = 0; y < maxY; y++)
+            switch (operation)
             {
-                for (int x = 0; x < maxX; x++)
-                {
-                    switch (grid[x, y])
-                    {
-                        case '#':
-                            Console.BackgroundColor = ConsoleColor.Gray;
-                            Console.Write("#");
-                            break;
-                        case '.':
-                            if (x == highlightX && y == highlightY) Console.BackgroundColor = ConsoleColor.Yellow;
-                            Console.Write(".");
-                            break;
-                        case 'E':
-                            Console.BackgroundColor = ConsoleColor.Green;
-                            Console.Write("E");
-                            break;
-                        case 'G':
-                            Console.BackgroundColor = ConsoleColor.Red;
-                            Console.Write("G");
-                            break;
-                    }
-                    Console.ResetColor();
-                }
-                Console.WriteLine();
+                case Operations.addr:
+                    this[values[3]] = this[values[1]] + this[values[2]];
+                    break;
+                case Operations.addi:
+                    this[values[3]] = this[values[1]] + values[2];
+                    break;
+                case Operations.mulr:
+                    this[values[3]] = this[values[1]] * this[values[2]];
+                    break;
+                case Operations.muli:
+                    this[values[3]] = this[values[1]] * values[2];
+                    break;
+                case Operations.banr:
+                    this[values[3]] = this[values[1]] & this[values[2]];
+                    break;
+                case Operations.bani:
+                    this[values[3]] = this[values[1]] & values[2];
+                    break;
+                case Operations.borr:
+                    this[values[3]] = this[values[1]] | this[values[2]];
+                    break;
+                case Operations.bori:
+                    this[values[3]] = this[values[1]] | values[2];
+                    break;
+                case Operations.setr:
+                    this[values[3]] = this[values[1]];
+                    break;
+                case Operations.seti:
+                    this[values[3]] = values[1];
+                    break;
+                case Operations.gtir:
+                    this[values[3]] = values[1] > this[values[2]] ? 1 : 0;
+                    break;
+                case Operations.gtri:
+                    this[values[3]] = this[values[1]] > values[2] ? 1 : 0;
+                    break;
+                case Operations.gtrr:
+                    this[values[3]] = this[values[1]] > this[values[2]] ? 1 : 0;
+                    break;
+                case Operations.eqir:
+                    this[values[3]] = values[1] == this[values[2]] ? 1 : 0;
+                    break;
+                case Operations.eqri:
+                    this[values[3]] = this[values[1]] == values[2] ? 1 : 0;
+                    break;
+                case Operations.eqrr:
+                    this[values[3]] = this[values[1]] == this[values[2]] ? 1 : 0;
+                    break;
+                default:
+                    throw new Exception("Wtf");
             }
-            Console.WriteLine();
         }
 
-        private List<Coords> GetNeighbours(Coords coords)
+        private bool SanityCheck(Operations opcode, int[] values)
         {
-            List<Coords> neighbours = new List<Coords>();
-            if (coords.Y - 1 >= 0) neighbours.Add(new Coords(coords.X, coords.Y - 1));
-            if (coords.X - 1 >= 0) neighbours.Add(new Coords(coords.X - 1, coords.Y));
-            if (coords.X + 1 < maxX) neighbours.Add(new Coords(coords.X + 1, coords.Y));
-            if (coords.Y + 1 < maxY) neighbours.Add(new Coords(coords.X, coords.Y + 1));
-            return neighbours;
+            switch (opcode)
+            {
+                case Operations.addr:
+                case Operations.mulr:
+                case Operations.banr:
+                case Operations.borr:
+                case Operations.setr:
+                    return (values[3] <= 3 && values[2] <= 3 && values[1] <= 3);
+                case Operations.addi:
+                case Operations.muli:
+                case Operations.bani:
+                case Operations.bori:
+                case Operations.seti:
+                    return (values[3] <= 3 && values[1] <= 3);
+                case Operations.gtir:
+                case Operations.eqir:
+                    return (values[3] <= 3 && values[2] <= 3);
+                case Operations.gtri:
+                case Operations.eqri:
+                    return (values[3] <= 3 && values[1] <= 3);
+                case Operations.eqrr:
+                case Operations.gtrr:
+                return (values[3] <= 3 && values[2] <= 3 && values[1] <= 3);
+                    
+            }
+            throw new Exception("wtf");
         }
 
-
+      
     }
-
 }
 
