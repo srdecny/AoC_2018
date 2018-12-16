@@ -15,7 +15,7 @@ namespace ConsoleApp5
         {
             string input = @"C:\Users\Vojta\Documents\input.txt";
             Registry registry = new Registry();
-            registry.DeduceOperations(input);
+            registry.executeProgram(input);
         }
 
     }
@@ -81,7 +81,7 @@ namespace ConsoleApp5
 
         public enum Operations { addr, addi, mulr, muli, banr, bani, borr, bori, setr, seti, gtir, gtri, gtrr, eqir, eqri, eqrr }
 
-        public void DeduceOperations(string input)
+        public Dictionary<int, List<Operations>> DeduceOperations(string input)
         {
             StreamReader file = new StreamReader(input);
             Dictionary<int, List<Operations>> deducedOperations = new Dictionary<int, List<Operations>>();
@@ -90,7 +90,6 @@ namespace ConsoleApp5
                 deducedOperations.Add(i, new List<Operations>());
                 for (int opcode = 0; opcode < 16; opcode++) deducedOperations[i].Add((Operations)opcode);
             }
-            int moreThanThreeOpcodes = 0;
             char[] delimiters = "BeforeAfter: [,]".ToCharArray();
             while (true)
             {
@@ -105,10 +104,9 @@ namespace ConsoleApp5
                 int[] intOperation = operation.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
                 int[] intAfter = after.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
 
-                if (analyzeOperation(intBefore, intOperation, intAfter).Count() >= 3) moreThanThreeOpcodes++;
+                deducedOperations[intOperation[0]] = deducedOperations[intOperation[0]].Intersect(analyzeOperation(intBefore, intOperation, intAfter)).ToList();
             }
-            Console.WriteLine(moreThanThreeOpcodes);
-            Console.ReadLine();
+            return deducedOperations;
 
         }
 
@@ -218,7 +216,58 @@ namespace ConsoleApp5
             throw new Exception("wtf");
         }
 
-      
+        public void executeProgram(string input)
+        {
+            var deducedOperations = DeduceOperations(input);
+            List<Operations>[] operations = new List<Operations>[16];
+            SetRegistryValues(new int[] { 0, 0, 0, 0, });
+            for (int i = 0; i < 16; i++) operations[i] = deducedOperations[i];
+
+            for (int iter = 0; iter < 16; iter++)
+            {
+                for (int i = 0; i < 16; i++)
+                {
+                    if (operations[i].Count == 1)
+                    {
+                        for (int j = 0; j < 16; j++)
+                        {
+                            if (i != j)
+                            {
+                                operations[j].Remove(operations[i][0]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            StreamReader file = new StreamReader(input);
+            {
+                string line = "";
+                while (true)
+                {
+                    line = file.ReadLine();
+                    if (line == "10 3 3 3") break;
+                }
+
+                int[] operation = line.Split(' ').Select(x => Int32.Parse(x)).ToArray();
+                Operations opcode = operations[operation[0]][0];
+                performOperation(opcode, operation);
+
+                while (!file.EndOfStream)
+                {
+                    line = file.ReadLine();
+                    operation = line.Split(' ').Select(x => Int32.Parse(x)).ToArray();
+                    opcode = operations[operation[0]][0];
+                    performOperation(opcode, operation);
+                }
+
+                Console.WriteLine(GetRegistryValues()[0]);
+                Console.ReadLine();
+            }
+
+
+
+        }
     }
 }
 
