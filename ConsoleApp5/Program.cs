@@ -14,260 +14,180 @@ namespace ConsoleApp5
         static void Main(string[] args)
         {
             string input = @"C:\Users\Vojta\Documents\input.txt";
-            Registry registry = new Registry();
-            registry.executeProgram(input);
+            Map map = new Map();
+            map.LoadMap(input);
+            map.BreadthFirstSearch();
         }
 
     }
 
-    class Registry
+    class Map
     {
-        int A;
-        int B;
-        int C;
-        int D;
+        HashSet<Coords> Clay = new HashSet<Coords>();
+        Dictionary<Coords, Coords> PreviousCoords = new Dictionary<Coords, Coords>();
 
-        public int this[int i]
-        {
-            get
-            {
-                switch (i)
-                {
-                    case 0:
-                        return A;
-                    case 1:
-                        return B;
-                    case 2:
-                        return C;
-                    case 3:
-                        return D;
-                }
-                throw new Exception("wtf");
-            }
-            set
-            {
-                switch (i)
-                {
-                    case 0:
-                        A = value;
-                        break;
-                    case 1:
-                        B = value;
-                        break;
-                    case 2:
-                        C = value;
-                        break;
-                    case 3:
-                        D = value;
-                        break;
-                    default:
-                        throw new Exception("wtf");
-                }
-            }
-        }
-
-        public int[] GetRegistryValues()
-        {
-            return new int[4] { A, B, C, D };
-        }
-
-        public void SetRegistryValues(int[] values)
-        {
-            A = values[0];
-            B = values[1];
-            C = values[2];
-            D = values[3];
-        }
-
-        public enum Operations { addr, addi, mulr, muli, banr, bani, borr, bori, setr, seti, gtir, gtri, gtrr, eqir, eqri, eqrr }
-
-        public Dictionary<int, List<Operations>> DeduceOperations(string input)
+        public void LoadMap(string input)
         {
             StreamReader file = new StreamReader(input);
-            Dictionary<int, List<Operations>> deducedOperations = new Dictionary<int, List<Operations>>();
-            for (int i = 0; i < 16; i++)
+            string line;
+            char[] delimiters = ", ".ToCharArray();
+            char[] coordinateDelimiters = "xy=.".ToCharArray();
+            while (!file.EndOfStream)
             {
-                deducedOperations.Add(i, new List<Operations>());
-                for (int opcode = 0; opcode < 16; opcode++) deducedOperations[i].Add((Operations)opcode);
-            }
-            char[] delimiters = "BeforeAfter: [,]".ToCharArray();
-            while (true)
-            {
-                string before = file.ReadLine();
-                string operation = file.ReadLine();
-                string after = file.ReadLine();
-                file.ReadLine();
+                line = file.ReadLine();
+                var coordinates = line.Split(delimiters, StringSplitOptions.RemoveEmptyEntries);
 
-                if (before == "") break;
+                IEnumerable<int> xRange;
+                IEnumerable<int> yRange;
+                List<int> theX;
+                List<int> theY;
 
-                int[] intBefore = before.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
-                int[] intOperation = operation.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
-                int[] intAfter = after.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
-
-                deducedOperations[intOperation[0]] = deducedOperations[intOperation[0]].Intersect(analyzeOperation(intBefore, intOperation, intAfter)).ToList();
-            }
-            return deducedOperations;
-
-        }
-
-        private List<Operations> analyzeOperation(int[] before, int[] operation, int[] after)
-        {
-            List<Operations> validOpcodes = new List<Operations>();
-
-            foreach (var opcode in Enum.GetValues(typeof(Operations)).Cast<Operations>())
-            {
-                if (SanityCheck(opcode, operation))
+                if (coordinates[0][0] == 'x')
                 {
-                    SetRegistryValues(before);
-                    performOperation(opcode, operation);
-                    if (GetRegistryValues().SequenceEqual(after))
+                    theX = coordinates[0].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
+                    theY = coordinates[1].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
+                }
+                else
+                {
+                    theX = coordinates[1].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
+                    theY = coordinates[0].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
+                }
+
+                if (theX.Count == 1) xRange = Enumerable.Range(theX[0], 1);
+                else xRange = Enumerable.Range(theX[0], Math.Abs(theX[1] - theX[0] + 1));
+
+                if (theY.Count == 1) yRange = Enumerable.Range(theY[0], 1);
+                else yRange = Enumerable.Range(theY[0], Math.Abs(theY[1] - theY[0] + 1));
+
+                foreach (var x in xRange)
+                {
+                    foreach (var y in yRange)
                     {
-                        validOpcodes.Add(opcode);
+                        Clay.Add(new Coords(x, y));
                     }
                 }
             }
-            return validOpcodes;
         }
 
-        private void performOperation(Operations operation, int[] values)
+        public void BreadthFirstSearch()
         {
-            switch (operation)
-            {
-                case Operations.addr:
-                    this[values[3]] = this[values[1]] + this[values[2]];
-                    break;
-                case Operations.addi:
-                    this[values[3]] = this[values[1]] + values[2];
-                    break;
-                case Operations.mulr:
-                    this[values[3]] = this[values[1]] * this[values[2]];
-                    break;
-                case Operations.muli:
-                    this[values[3]] = this[values[1]] * values[2];
-                    break;
-                case Operations.banr:
-                    this[values[3]] = this[values[1]] & this[values[2]];
-                    break;
-                case Operations.bani:
-                    this[values[3]] = this[values[1]] & values[2];
-                    break;
-                case Operations.borr:
-                    this[values[3]] = this[values[1]] | this[values[2]];
-                    break;
-                case Operations.bori:
-                    this[values[3]] = this[values[1]] | values[2];
-                    break;
-                case Operations.setr:
-                    this[values[3]] = this[values[1]];
-                    break;
-                case Operations.seti:
-                    this[values[3]] = values[1];
-                    break;
-                case Operations.gtir:
-                    this[values[3]] = values[1] > this[values[2]] ? 1 : 0;
-                    break;
-                case Operations.gtri:
-                    this[values[3]] = this[values[1]] > values[2] ? 1 : 0;
-                    break;
-                case Operations.gtrr:
-                    this[values[3]] = this[values[1]] > this[values[2]] ? 1 : 0;
-                    break;
-                case Operations.eqir:
-                    this[values[3]] = values[1] == this[values[2]] ? 1 : 0;
-                    break;
-                case Operations.eqri:
-                    this[values[3]] = this[values[1]] == values[2] ? 1 : 0;
-                    break;
-                case Operations.eqrr:
-                    this[values[3]] = this[values[1]] == this[values[2]] ? 1 : 0;
-                    break;
-                default:
-                    throw new Exception("Wtf");
-            }
-        }
+            Stack<Coords> splittedWater = new Stack<Coords>();
+            int waterCount = 1;
+            //int maxY = Clay.Max(x => x.Y);
+            int maxY = 100;
+            Coords waterCell = new Coords(500, 0);
+            splittedWater.Push(new Coords(500, 1));
+            PreviousCoords.Add(new Coords(500, 1), new Coords(500 ,0));
 
-        private bool SanityCheck(Operations opcode, int[] values)
-        {
-            switch (opcode)
+            while (splittedWater.Any())
             {
-                case Operations.addr:
-                case Operations.mulr:
-                case Operations.banr:
-                case Operations.borr:
-                case Operations.setr:
-                    return (values[3] <= 3 && values[2] <= 3 && values[1] <= 3);
-                case Operations.addi:
-                case Operations.muli:
-                case Operations.bani:
-                case Operations.bori:
-                case Operations.seti:
-                    return (values[3] <= 3 && values[1] <= 3);
-                case Operations.gtir:
-                case Operations.eqir:
-                    return (values[3] <= 3 && values[2] <= 3);
-                case Operations.gtri:
-                case Operations.eqri:
-                    return (values[3] <= 3 && values[1] <= 3);
-                case Operations.eqrr:
-                case Operations.gtrr:
-                return (values[3] <= 3 && values[2] <= 3 && values[1] <= 3);
-                    
-            }
-            throw new Exception("wtf");
-        }
-
-        public void executeProgram(string input)
-        {
-            var deducedOperations = DeduceOperations(input);
-            List<Operations>[] operations = new List<Operations>[16];
-            SetRegistryValues(new int[] { 0, 0, 0, 0, });
-            for (int i = 0; i < 16; i++) operations[i] = deducedOperations[i];
-
-            for (int iter = 0; iter < 16; iter++)
-            {
-                for (int i = 0; i < 16; i++)
+                waterCell = splittedWater.Pop();
+                while (waterCell.Y <= maxY)
                 {
-                    if (operations[i].Count == 1)
+
+                    // too high
+                    if (splittedWater.Any())
                     {
-                        for (int j = 0; j < 16; j++)
-                        {
-                            if (i != j)
-                            {
-                                operations[j].Remove(operations[i][0]);
-                            }
-                        }
+                        if (waterCell.Y < splittedWater.Max(w => w.Y)) break;
                     }
+
+                    Coords down = new Coords(waterCell.X, waterCell.Y + 1);
+                    Coords left = new Coords(waterCell.X - 1, waterCell.Y);
+                    Coords right = new Coords(waterCell.X + 1, waterCell.Y);
+
+
+                    bool canMoveDown = !(PreviousCoords.Keys.Contains(down)) && !(Clay.Contains(down));
+                    bool canMoveLeft = !(PreviousCoords.Keys.Contains(left)) && !(Clay.Contains(left));
+                    bool canMoveRight = !(PreviousCoords.Keys.Contains(right)) && !(Clay.Contains(right));
+
+
+                    if (canMoveDown)
+                    {
+                        
+                        PreviousCoords.Add(down, waterCell);
+                        waterCell = down;
+                        waterCount++;
+                        if (down.Y + 1 > maxY) break;
+
+                    }
+                    else if (canMoveLeft && canMoveRight)
+                    {
+                        PreviousCoords.Add(right, waterCell);
+                        PreviousCoords.Add(left, waterCell);
+                        splittedWater.Push(right);
+                        waterCell = left;
+                        waterCount += 2;
+
+                    }
+                    else if (canMoveLeft)
+                    {
+                        PreviousCoords.Add(left, waterCell);
+                        waterCell = left;
+                        waterCount++;
+                    }
+                    else if (canMoveRight)
+                    {
+                        PreviousCoords.Add(right, waterCell);
+                        waterCell = right;
+                        waterCount++;
+                    }
+                    else
+                    {
+                        waterCell = PreviousCoords[waterCell];
+                    }
+
                 }
             }
+            PrintMap();
+            Console.WriteLine(waterCount);
+            Console.ReadLine();
+            // 1461857 high
+        }
 
-            StreamReader file = new StreamReader(input);
+        public void PrintMap(int highlightX = -1, int highlightY = -1)
+        {
+            for (int y = 0; y < 100; y++)
             {
-                string line = "";
-                while (true)
+                for (int x = 400; x < 600; x++)
                 {
-                    line = file.ReadLine();
-                    if (line == "10 3 3 3") break;
+                    if (Clay.Contains(new Coords(x, y)))
+                    {
+                        Console.BackgroundColor = ConsoleColor.DarkRed;
+                        Console.Write("C");
+
+                    }
+                    else if (PreviousCoords.Keys.Contains(new Coords(x, y)))
+                    {
+                        if (x == highlightX && y == highlightY) Console.BackgroundColor = ConsoleColor.Yellow;
+                        else Console.BackgroundColor = ConsoleColor.Blue;
+                        Console.Write("W");
+                    }
+                    else
+                    {
+                        Console.Write(".");
+                    }
+                    Console.ResetColor();
                 }
-
-                int[] operation = line.Split(' ').Select(x => Int32.Parse(x)).ToArray();
-                Operations opcode = operations[operation[0]][0];
-                performOperation(opcode, operation);
-
-                while (!file.EndOfStream)
-                {
-                    line = file.ReadLine();
-                    operation = line.Split(' ').Select(x => Int32.Parse(x)).ToArray();
-                    opcode = operations[operation[0]][0];
-                    performOperation(opcode, operation);
-                }
-
-                Console.WriteLine(GetRegistryValues()[0]);
-                Console.ReadLine();
+                Console.WriteLine();
             }
-
-
+            Console.WriteLine();
 
         }
     }
+
+    public struct Coords
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+
+        public Coords(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+    }
+   
+    
+
 }
 
