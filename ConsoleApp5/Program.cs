@@ -16,7 +16,7 @@ namespace ConsoleApp5
             string input = @"C:\Users\Vojta\Documents\input.txt";
             Map map = new Map();
             map.Load(input);
-            map.SimulateMinutes(1000000000);
+            map.SimulateMinutes(10);
             Console.WriteLine(map.GetResourceValue());
             Console.ReadLine();
             // 770775 high
@@ -49,38 +49,7 @@ namespace ConsoleApp5
 
         public void SimulateMinutes(int minutes)
         {
-            List<int> loopHashCodes = new List<int>()
-                {
-                    33,
-                    3609,
-                    2884,
-                    6213,
-                    4532,
-                    7366,
-                    2906,
-                    1797,
-                    4314,
-                    7245,
-                    6489,
-                    7867, // start of the loop
-                    5351,
-                    884 ,
-                    8125,
-                    7815,
-                    7277,
-                    7501,
-                    7477,
-                    1981,
-                    1859,
-                    6000,
-                    5758,
-                    2396,
-                    6288,
-                    6146,
-                    4188,
-                    6469,
-                };
-
+            
             for (int i = 1; i <= minutes; i++)
             {
                 char[,] newGrid = new char[maxX, maxY];
@@ -108,14 +77,8 @@ namespace ConsoleApp5
                         }
                     }
                 }
-
                 Grid = newGrid;
-                // loop starts at 417
-                if (GetHashCode() == 1797)
-                {
-                    Console.WriteLine(GetResourceValue());
-                }
-                
+
             }
         }
 
@@ -180,21 +143,7 @@ namespace ConsoleApp5
             Console.WriteLine();
         }
 
-        public override int GetHashCode()
-        {
-            int bucketCount = 8192;
-            int result = 0;
-            for (int y = 0; y < maxY; y++)
-            {
-                for (int x = 0; x < maxX; x++)
-                {
-                    if (Grid[x, y] == '|') result += 7 * x * y;
-                    if (Grid[x, y] == '#') result += 13 * x * y;
-                }
-
-            }
-            return result % bucketCount;
-        }
+        
     }
 }
 
