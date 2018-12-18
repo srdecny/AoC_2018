@@ -17,6 +17,7 @@ namespace ConsoleApp5
             Map map = new Map();
             map.LoadMap(input);
             map.BreadthFirstSearch();
+            map.FindRunningWater();
         }
 
     }
@@ -25,6 +26,7 @@ namespace ConsoleApp5
     {
         HashSet<Coords> Clay = new HashSet<Coords>();
         Dictionary<Coords, Coords> PreviousCoords = new Dictionary<Coords, Coords>();
+        HashSet<Coords> runningWater = new HashSet<Coords>();
 
         public void LoadMap(string input)
         {
@@ -143,12 +145,10 @@ namespace ConsoleApp5
                         waterCell = left;
                         waterCount++;
 
-                        
                     }
                     else if (canMoveRight)
                     {
 
-                        
                         PreviousCoords.Add(right, waterCell);
                         waterCell = right;
                         waterCount++;
@@ -191,13 +191,12 @@ namespace ConsoleApp5
                         }
 
                         waterCell = PreviousCoords[waterCell];
+
                     }
 
                 }
             }
-            PrintMap();
             Console.WriteLine(PreviousCoords.Keys.Distinct().Count());
-            Console.ReadLine();
             // 1461857 high
             // 42385 high
             // 42378 not 
@@ -206,7 +205,61 @@ namespace ConsoleApp5
             // 41031 not
         }
 
-        public void PrintMap(int highlightX = -1, int highlightY = -1)
+        public void FindRunningWater()
+        {
+            Stack<Coords> splittedWater = new Stack<Coords>();
+            splittedWater.Push(new Coords(500, 1));
+            Coords waterCell = new Coords(500, 0);
+            int maxY = Clay.Max(x => x.Y);
+
+            while (splittedWater.Any())
+            {
+                waterCell = splittedWater.Pop();
+                while (waterCell.Y <= maxY)
+                {
+
+                    runningWater.Add(waterCell);
+
+                    Coords down = new Coords(waterCell.X, waterCell.Y + 1);
+                    Coords left = new Coords(waterCell.X - 1, waterCell.Y);
+                    Coords right = new Coords(waterCell.X + 1, waterCell.Y);
+
+
+                    bool canMoveDown = PreviousCoords.Keys.Contains(down) && !runningWater.Contains(down);
+                    bool canMoveLeft = PreviousCoords.Keys.Contains(left) && !runningWater.Contains(left);
+                    bool canMoveRight = PreviousCoords.Keys.Contains(right) && !runningWater.Contains(right);
+
+
+                    if (canMoveDown && !canMoveLeft && !canMoveRight)
+                    {
+                        runningWater.Add(waterCell);
+                        waterCell = down;
+                    }
+                    else if (canMoveLeft && canMoveRight)
+                    {
+                        splittedWater.Push(left);
+                        waterCell = right;
+                    }
+                    else if (canMoveLeft)
+                    {
+                        waterCell = left;
+                    }
+                    else if (canMoveRight)
+                    {
+                        waterCell = right;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+            PrintMap();
+            Console.WriteLine(runningWater.Count);
+
+        }
+
+            public void PrintMap(int highlightX = -1, int highlightY = -1)
         {
             for (int y = 0; y < 1700; y++)
             {
@@ -222,6 +275,10 @@ namespace ConsoleApp5
                     else if (PreviousCoords.Keys.Contains(new Coords(x, y)))
                     {
                         if (x == highlightX && y == highlightY) Console.BackgroundColor = ConsoleColor.Yellow;
+                        else if (runningWater.Contains(new Coords(x, y)))
+                        {
+                            Console.BackgroundColor = ConsoleColor.Green;
+                        }
                         else Console.BackgroundColor = ConsoleColor.Blue;
                         Console.Write("W");
                     }
