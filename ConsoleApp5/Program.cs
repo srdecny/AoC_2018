@@ -14,259 +14,186 @@ namespace ConsoleApp5
         static void Main(string[] args)
         {
             string input = @"C:\Users\Vojta\Documents\input.txt";
-            Registry registry = new Registry();
-            registry.executeProgram(input);
+            Map map = new Map();
+            map.Load(input);
+            map.SimulateMinutes(1000000000);
+            Console.WriteLine(map.GetResourceValue());
+            Console.ReadLine();
+            // 770775 high
         }
 
     }
 
-    class Registry
+    class Map
     {
-        int A;
-        int B;
-        int C;
-        int D;
+        static int maxX = 50;
+        static int maxY = 50;
+        char[,] Grid = new char[maxX, maxY];
+        Dictionary<int, List<int>> history = new Dictionary<int, List<int>>();
 
-        public int this[int i]
-        {
-            get
-            {
-                switch (i)
-                {
-                    case 0:
-                        return A;
-                    case 1:
-                        return B;
-                    case 2:
-                        return C;
-                    case 3:
-                        return D;
-                }
-                throw new Exception("wtf");
-            }
-            set
-            {
-                switch (i)
-                {
-                    case 0:
-                        A = value;
-                        break;
-                    case 1:
-                        B = value;
-                        break;
-                    case 2:
-                        C = value;
-                        break;
-                    case 3:
-                        D = value;
-                        break;
-                    default:
-                        throw new Exception("wtf");
-                }
-            }
-        }
-
-        public int[] GetRegistryValues()
-        {
-            return new int[4] { A, B, C, D };
-        }
-
-        public void SetRegistryValues(int[] values)
-        {
-            A = values[0];
-            B = values[1];
-            C = values[2];
-            D = values[3];
-        }
-
-        public enum Operations { addr, addi, mulr, muli, banr, bani, borr, bori, setr, seti, gtir, gtri, gtrr, eqir, eqri, eqrr }
-
-        public Dictionary<int, List<Operations>> DeduceOperations(string input)
+        public void Load(string input)
         {
             StreamReader file = new StreamReader(input);
-            Dictionary<int, List<Operations>> deducedOperations = new Dictionary<int, List<Operations>>();
-            for (int i = 0; i < 16; i++)
+            int y = 0;
+            while (!file.EndOfStream)
             {
-                deducedOperations.Add(i, new List<Operations>());
-                for (int opcode = 0; opcode < 16; opcode++) deducedOperations[i].Add((Operations)opcode);
-            }
-            char[] delimiters = "BeforeAfter: [,]".ToCharArray();
-            while (true)
-            {
-                string before = file.ReadLine();
-                string operation = file.ReadLine();
-                string after = file.ReadLine();
-                file.ReadLine();
-
-                if (before == "") break;
-
-                int[] intBefore = before.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
-                int[] intOperation = operation.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
-                int[] intAfter = after.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToArray();
-
-                deducedOperations[intOperation[0]] = deducedOperations[intOperation[0]].Intersect(analyzeOperation(intBefore, intOperation, intAfter)).ToList();
-            }
-            return deducedOperations;
-
-        }
-
-        private List<Operations> analyzeOperation(int[] before, int[] operation, int[] after)
-        {
-            List<Operations> validOpcodes = new List<Operations>();
-
-            foreach (var opcode in Enum.GetValues(typeof(Operations)).Cast<Operations>())
-            {
-                if (SanityCheck(opcode, operation))
+                string line = file.ReadLine();
+                foreach (var character in line.Select((symbol, x) => new { symbol, x }))
                 {
-                    SetRegistryValues(before);
-                    performOperation(opcode, operation);
-                    if (GetRegistryValues().SequenceEqual(after))
-                    {
-                        validOpcodes.Add(opcode);
-                    }
+                    Grid[character.x, y] = character.symbol;
                 }
+                y++;
             }
-            return validOpcodes;
+
         }
 
-        private void performOperation(Operations operation, int[] values)
+        public void SimulateMinutes(int minutes)
         {
-            switch (operation)
-            {
-                case Operations.addr:
-                    this[values[3]] = this[values[1]] + this[values[2]];
-                    break;
-                case Operations.addi:
-                    this[values[3]] = this[values[1]] + values[2];
-                    break;
-                case Operations.mulr:
-                    this[values[3]] = this[values[1]] * this[values[2]];
-                    break;
-                case Operations.muli:
-                    this[values[3]] = this[values[1]] * values[2];
-                    break;
-                case Operations.banr:
-                    this[values[3]] = this[values[1]] & this[values[2]];
-                    break;
-                case Operations.bani:
-                    this[values[3]] = this[values[1]] & values[2];
-                    break;
-                case Operations.borr:
-                    this[values[3]] = this[values[1]] | this[values[2]];
-                    break;
-                case Operations.bori:
-                    this[values[3]] = this[values[1]] | values[2];
-                    break;
-                case Operations.setr:
-                    this[values[3]] = this[values[1]];
-                    break;
-                case Operations.seti:
-                    this[values[3]] = values[1];
-                    break;
-                case Operations.gtir:
-                    this[values[3]] = values[1] > this[values[2]] ? 1 : 0;
-                    break;
-                case Operations.gtri:
-                    this[values[3]] = this[values[1]] > values[2] ? 1 : 0;
-                    break;
-                case Operations.gtrr:
-                    this[values[3]] = this[values[1]] > this[values[2]] ? 1 : 0;
-                    break;
-                case Operations.eqir:
-                    this[values[3]] = values[1] == this[values[2]] ? 1 : 0;
-                    break;
-                case Operations.eqri:
-                    this[values[3]] = this[values[1]] == values[2] ? 1 : 0;
-                    break;
-                case Operations.eqrr:
-                    this[values[3]] = this[values[1]] == this[values[2]] ? 1 : 0;
-                    break;
-                default:
-                    throw new Exception("Wtf");
-            }
-        }
-
-        private bool SanityCheck(Operations opcode, int[] values)
-        {
-            switch (opcode)
-            {
-                case Operations.addr:
-                case Operations.mulr:
-                case Operations.banr:
-                case Operations.borr:
-                case Operations.setr:
-                    return (values[3] <= 3 && values[2] <= 3 && values[1] <= 3);
-                case Operations.addi:
-                case Operations.muli:
-                case Operations.bani:
-                case Operations.bori:
-                case Operations.seti:
-                    return (values[3] <= 3 && values[1] <= 3);
-                case Operations.gtir:
-                case Operations.eqir:
-                    return (values[3] <= 3 && values[2] <= 3);
-                case Operations.gtri:
-                case Operations.eqri:
-                    return (values[3] <= 3 && values[1] <= 3);
-                case Operations.eqrr:
-                case Operations.gtrr:
-                return (values[3] <= 3 && values[2] <= 3 && values[1] <= 3);
-                    
-            }
-            throw new Exception("wtf");
-        }
-
-        public void executeProgram(string input)
-        {
-            var deducedOperations = DeduceOperations(input);
-            List<Operations>[] operations = new List<Operations>[16];
-            SetRegistryValues(new int[] { 0, 0, 0, 0, });
-            for (int i = 0; i < 16; i++) operations[i] = deducedOperations[i];
-
-            for (int iter = 0; iter < 16; iter++)
-            {
-                for (int i = 0; i < 16; i++)
+            List<int> loopHashCodes = new List<int>()
                 {
-                    if (operations[i].Count == 1)
+                    33,
+                    3609,
+                    2884,
+                    6213,
+                    4532,
+                    7366,
+                    2906,
+                    1797,
+                    4314,
+                    7245,
+                    6489,
+                    7867, // start of the loop
+                    5351,
+                    884 ,
+                    8125,
+                    7815,
+                    7277,
+                    7501,
+                    7477,
+                    1981,
+                    1859,
+                    6000,
+                    5758,
+                    2396,
+                    6288,
+                    6146,
+                    4188,
+                    6469,
+                };
+
+            for (int i = 1; i <= minutes; i++)
+            {
+                char[,] newGrid = new char[maxX, maxY];
+                for (int y = 0; y < maxY; y++)
+                {
+                    for (int x = 0; x < maxX; x++)
                     {
-                        for (int j = 0; j < 16; j++)
+                        int treeCount = GetNeighbours((x, y)).Count(acre => Grid[acre.x, acre.y] == '|');
+                        int lumberyardCount = GetNeighbours((x, y)).Count(acre => Grid[acre.x, acre.y] == '#');
+
+                        switch (Grid[x, y])
                         {
-                            if (i != j)
-                            {
-                                operations[j].Remove(operations[i][0]);
-                            }
+                            case '.':
+                                if (treeCount >= 3) newGrid[x, y] = '|';
+                                else newGrid[x, y] = '.';
+                                break;
+                            case '#':
+                                if (lumberyardCount >= 1 && treeCount >= 1) newGrid[x, y] = '#';
+                                else newGrid[x, y] = '.';
+                                break;
+                            case '|':
+                                if (lumberyardCount >= 3) newGrid[x, y] = '#';
+                                else newGrid[x, y] = '|';
+                                break;
                         }
                     }
                 }
-            }
 
-            StreamReader file = new StreamReader(input);
+                Grid = newGrid;
+                // loop starts at 417
+                if (GetHashCode() == 1797)
+                {
+                    Console.WriteLine(GetResourceValue());
+                }
+                
+            }
+        }
+
+        public static List<(int x, int y)> GetNeighbours((int x, int y) coords)
+        {
+            List<(int x, int y)> neighbours = new List<(int x, int y)>();
+            if (coords.x + 1 < maxX) neighbours.Add((coords.x + 1, coords.y));
+            if (coords.y + 1 < maxY) neighbours.Add((coords.x, coords.y + 1));
+            if (coords.x - 1 >= 0) neighbours.Add((coords.x - 1, coords.y));
+            if (coords.y - 1 >= 0) neighbours.Add((coords.x, coords.y - 1));
+
+            if (coords.x + 1 < maxX && coords.y + 1 < maxY ) neighbours.Add((coords.x + 1, coords.y + 1));
+            if (coords.y + 1 < maxY && coords.x - 1 >= 0) neighbours.Add((coords.x - 1, coords.y + 1));
+            if (coords.x - 1 >= 0 && coords.y - 1 >= 0) neighbours.Add((coords.x - 1, coords.y - 1));
+            if (coords.y - 1 >= 0 && coords.x + 1 < maxX) neighbours.Add((coords.x + 1, coords.y - 1));
+            return neighbours;
+        }
+
+        public int GetResourceValue()
+        {
+            int lumberyards = 0;
+            int trees = 0;
+            for (int y = 0; y < maxY; y++)
             {
-                string line = "";
-                while (true)
+                for (int x = 0; x < maxX; x++)
                 {
-                    line = file.ReadLine();
-                    if (line == "10 3 3 3") break;
+                    if (Grid[x, y] == '|') trees++;
+                    if (Grid[x, y] == '#') lumberyards++;
                 }
 
-                int[] operation = line.Split(' ').Select(x => Int32.Parse(x)).ToArray();
-                Operations opcode = operations[operation[0]][0];
-                performOperation(opcode, operation);
-
-                while (!file.EndOfStream)
-                {
-                    line = file.ReadLine();
-                    operation = line.Split(' ').Select(x => Int32.Parse(x)).ToArray();
-                    opcode = operations[operation[0]][0];
-                    performOperation(opcode, operation);
-                }
-
-                Console.WriteLine(GetRegistryValues()[0]);
-                Console.ReadLine();
             }
+            return trees * lumberyards;
+        }
 
+        public void PrintMap()
+        {
+            for (int y = 0; y < maxY; y++)
+            {
+                for (int x = 0; x < maxX; x++)
+                {
+                    Console.ResetColor();
 
+                    if (Grid[x, y] == '|')
+                    {
+                        Console.BackgroundColor = ConsoleColor.DarkGreen;
+                        Console.Write("|");
+                    }
+                    else if (Grid[x, y] == '#')
+                    {
+                        Console.BackgroundColor = ConsoleColor.DarkRed;
+                        Console.Write("#");
 
+                    }
+                    else
+                    {
+                        Console.Write(".");
+                    }
+
+                }
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+        }
+
+        public override int GetHashCode()
+        {
+            int bucketCount = 8192;
+            int result = 0;
+            for (int y = 0; y < maxY; y++)
+            {
+                for (int x = 0; x < maxX; x++)
+                {
+                    if (Grid[x, y] == '|') result += 7 * x * y;
+                    if (Grid[x, y] == '#') result += 13 * x * y;
+                }
+
+            }
+            return result % bucketCount;
         }
     }
 }
