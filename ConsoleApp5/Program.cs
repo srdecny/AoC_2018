@@ -72,6 +72,7 @@ namespace ConsoleApp5
         public void BreadthFirstSearch()
         {
             Stack<Coords> splittedWater = new Stack<Coords>();
+            HashSet<int> waterLevels = new HashSet<int>();
             int waterCount = 1;
             //int maxY = Clay.Max(x => x.Y);
             int maxY = 100;
@@ -84,7 +85,7 @@ namespace ConsoleApp5
                 waterCell = splittedWater.Pop();
                 while (waterCell.Y <= maxY)
                 {
-
+                    //if (waterCell.Y >= 0) PrintMap(waterCell.X, waterCell.Y);
                     // too high
                     if (splittedWater.Any())
                     {
@@ -100,10 +101,20 @@ namespace ConsoleApp5
                     bool canMoveLeft = !(PreviousCoords.Keys.Contains(left)) && !(Clay.Contains(left));
                     bool canMoveRight = !(PreviousCoords.Keys.Contains(right)) && !(Clay.Contains(right));
 
+                    // cannot move down because there's water down
+                    if (!canMoveDown && PreviousCoords.Keys.Contains(down) && canMoveLeft && canMoveRight)
+                    {
+                        var downWater = PreviousCoords[down];
+                        if (waterCell.X != downWater.X || waterCell.Y != downWater.Y)
+                        {
+                            PrintMap(waterCell.X, waterCell.Y);
+                            break;
+                        }
+                    }
 
                     if (canMoveDown)
                     {
-                        
+                     
                         PreviousCoords.Add(down, waterCell);
                         waterCell = down;
                         waterCount++;
@@ -121,19 +132,27 @@ namespace ConsoleApp5
                     }
                     else if (canMoveLeft)
                     {
+                        
+
                         PreviousCoords.Add(left, waterCell);
                         waterCell = left;
                         waterCount++;
+
+                        
                     }
                     else if (canMoveRight)
                     {
+
+                        
                         PreviousCoords.Add(right, waterCell);
                         waterCell = right;
                         waterCount++;
+                        
                     }
                     else
                     {
                         waterCell = PreviousCoords[waterCell];
+                        if (waterLevels.Contains(waterCell.Y)) break;
                     }
 
                 }
