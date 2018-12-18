@@ -74,22 +74,27 @@ namespace ConsoleApp5
             Stack<Coords> splittedWater = new Stack<Coords>();
             HashSet<int> waterLevels = new HashSet<int>();
             int waterCount = 1;
-            //int maxY = Clay.Max(x => x.Y);
-            int maxY = 100;
+            int maxY = Clay.Max(x => x.Y);
+            //int maxY = 100;
             Coords waterCell = new Coords(500, 0);
             splittedWater.Push(new Coords(500, 1));
             PreviousCoords.Add(new Coords(500, 1), new Coords(500 ,0));
 
             while (splittedWater.Any())
             {
+                newWaterCell:
                 waterCell = splittedWater.Pop();
                 while (waterCell.Y <= maxY)
                 {
-                    //if (waterCell.Y >= 0) PrintMap(waterCell.X, waterCell.Y);
                     // too high
                     if (splittedWater.Any())
                     {
                         if (waterCell.Y < splittedWater.Max(w => w.Y)) break;
+                    }
+
+                    if (waterCell.X == 497 && waterCell.Y == 1174)
+                    {
+                        break;
                     }
 
                     Coords down = new Coords(waterCell.X, waterCell.Y + 1);
@@ -107,7 +112,7 @@ namespace ConsoleApp5
                         var downWater = PreviousCoords[down];
                         if (waterCell.X != downWater.X || waterCell.Y != downWater.Y)
                         {
-                            PrintMap(waterCell.X, waterCell.Y);
+                            //PrintMap(waterCell.X, waterCell.Y);
                             break;
                         }
                     }
@@ -151,23 +156,62 @@ namespace ConsoleApp5
                     }
                     else
                     {
+                        int scope = waterCell.X;
+                        // check if we haven't already overflowed on the other side
+                        if (Clay.Contains(left)) // moving right, see the left side
+                        {
+                            while (true)
+                            {
+                                if (Clay.Contains(new Coords(scope, waterCell.Y)))
+                                {
+                                    break;
+                                }
+                                else if (!PreviousCoords.ContainsKey(new Coords(scope, waterCell.Y)))
+                                {
+                                    goto newWaterCell;
+                                }
+                                scope++;
+
+                            }
+                        }
+                        else // moving left, see the right side
+                        {
+                            while (true)
+                            {
+                                if (Clay.Contains(new Coords(scope, waterCell.Y)))
+                                {
+                                    break;
+                                }
+                                else if (!PreviousCoords.ContainsKey(new Coords(scope, waterCell.Y)))
+                                {
+                                    goto newWaterCell;
+                                }
+                                scope--;
+                            }
+                        }
+
                         waterCell = PreviousCoords[waterCell];
-                        if (waterLevels.Contains(waterCell.Y)) break;
                     }
 
                 }
             }
             PrintMap();
-            Console.WriteLine(waterCount);
+            Console.WriteLine(PreviousCoords.Keys.Distinct().Count());
             Console.ReadLine();
             // 1461857 high
+            // 42385 high
+            // 42378 not 
+            // 41032 not
+            // 41033 not
+            // 41031 not
         }
 
         public void PrintMap(int highlightX = -1, int highlightY = -1)
         {
-            for (int y = 0; y < 100; y++)
+            for (int y = 0; y < 1700; y++)
             {
-                for (int x = 400; x < 600; x++)
+                Console.Write($"{y}: ");
+                for (int x = 200; x < 680; x++)
                 {
                     if (Clay.Contains(new Coords(x, y)))
                     {
