@@ -14,276 +14,320 @@ namespace ConsoleApp5
         static void Main(string[] args)
         {
             string input = @"C:\Users\srdecny\Documents\input.txt";
-            Registry registry = new Registry();
-            registry.ParseInput(input);
-            registry.DecompiledProgram();
+            Map map = new Map();
+            map.LoadMap(input);
+            map.BreadthFirstSearch();
+            map.FindRunningWater();
         }
 
     }
 
-    class Registry
+    class Map
     {
-        Dictionary<int, Instruction> Program = new Dictionary<int, Instruction>();
-        int instructionRegistry;
+        HashSet<Coords> Clay = new HashSet<Coords>();
+        Dictionary<Coords, Coords> PreviousCoords = new Dictionary<Coords, Coords>();
+        HashSet<Coords> runningWater = new HashSet<Coords>();
+        HashSet<Coords> fallingWater = new HashSet<Coords>();
 
-        int A;
-        int B;
-        int C;
-        int D;
-        int E;
-        int F;
-
-        public int this[int i]
-        {
-            get
-            {
-                switch (i)
-                {
-                    case 0:
-                        return A;
-                    case 1:
-                        return B;
-                    case 2:
-                        return C;
-                    case 3:
-                        return D;
-                    case 4:
-                        return E;
-                    case 5:
-                        return F;
-                }
-                throw new Exception("wtf");
-            }
-            set
-            {
-                switch (i)
-                {
-                    case 0:
-                        A = value;
-                        break;
-                    case 1:
-                        B = value;
-                        break;
-                    case 2:
-                        C = value;
-                        break;
-                    case 3:
-                        D = value;
-                        break;
-                    case 4:
-                        E = value;
-                        break;
-                    case 5:
-                        F = value;
-                        break;
-                    default:
-                        throw new Exception("wtf");
-                }
-            }
-        }
-
-        public int[] GetRegistryValues()
-        {
-            return new int[6] { A, B, C, D, E, F};
-        }
-
-        public void SetRegistryValues(int[] values)
-        {
-            A = values[0];
-            B = values[1];
-            C = values[2];
-            D = values[3];
-            E = values[4];
-            F = values[5];
-        }
-
-        public enum Operations { addr, addi, mulr, muli, banr, bani, borr, bori, setr, seti, gtir, gtri, gtrr, eqir, eqri, eqrr }
-
-        private void performOperation(Instruction instruction)
-        {
-            Operations operation = instruction.Opcode;
-            int[] values = instruction.Values;
-            switch (operation)
-            {
-                case Operations.addr:
-                    this[values[2]] = this[values[0]] + this[values[1]];
-                    break;
-                case Operations.addi:
-                    this[values[2]] = this[values[0]] + values[1];
-                    break;
-                case Operations.mulr:
-                    this[values[2]] = this[values[0]] * this[values[1]];
-                    break;
-                case Operations.muli:
-                    this[values[2]] = this[values[0]] * values[1];
-                    break;
-                case Operations.banr:
-                    this[values[2]] = this[values[0]] & this[values[1]];
-                    break;
-                case Operations.bani:
-                    this[values[2]] = this[values[0]] & values[1];
-                    break;
-                case Operations.borr:
-                    this[values[2]] = this[values[0]] | this[values[1]];
-                    break;
-                case Operations.bori:
-                    this[values[2]] = this[values[0]] | values[1];
-                    break;
-                case Operations.setr:
-                    this[values[2]] = this[values[0]];
-                    break;
-                case Operations.seti:
-                    this[values[2]] = values[0];
-                    break;
-                case Operations.gtir:
-                    this[values[2]] = values[0] > this[values[1]] ? 1 : 0;
-                    break;
-                case Operations.gtri:
-                    this[values[2]] = this[values[0]] > values[1] ? 1 : 0;
-                    break;
-                case Operations.gtrr:
-                    this[values[2]] = this[values[0]] > this[values[1]] ? 1 : 0;
-                    break;
-                case Operations.eqir:
-                    this[values[2]] = values[0] == this[values[1]] ? 1 : 0;
-                    break;
-                case Operations.eqri:
-                    this[values[2]] = this[values[0]] == values[1] ? 1 : 0;
-                    break;
-                case Operations.eqrr:
-                    this[values[2]] = this[values[0]] == this[values[1]] ? 1 : 0;
-                    break;
-                default:
-                    throw new Exception("Wtf");
-            }
-        }
-
-        public void ParseInput(string input)
+        public void LoadMap(string input)
         {
             StreamReader file = new StreamReader(input);
-            string line = file.ReadLine();
-            instructionRegistry = Int32.Parse(line.Split(' ')[1]);
-            int instructionCount = 0;
+            string line;
+            char[] delimiters = ", ".ToCharArray();
+            char[] coordinateDelimiters = "xy=.".ToCharArray();
             while (!file.EndOfStream)
             {
                 line = file.ReadLine();
-                string[] words = line.Split(' ');
-                int[] values = new int[3];
-                values[0] = Int32.Parse(words[1]);
-                values[1] = Int32.Parse(words[2]);
-                values[2] = Int32.Parse(words[3]);
-                Operations opcode;
-                Enum.TryParse(words[0], out opcode);
-                Program.Add(instructionCount, new Instruction(opcode, values));
-                instructionCount++;
+                var coordinates = line.Split(delimiters, StringSplitOptions.RemoveEmptyEntries);
 
+                IEnumerable<int> xRange;
+                IEnumerable<int> yRange;
+                List<int> theX;
+                List<int> theY;
+
+                if (coordinates[0][0] == 'x')
+                {
+                    theX = coordinates[0].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
+                    theY = coordinates[1].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
+                }
+                else
+                {
+                    theX = coordinates[1].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
+                    theY = coordinates[0].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
+                }
+
+                if (theX.Count == 1) xRange = Enumerable.Range(theX[0], 1);
+                else xRange = Enumerable.Range(theX[0], Math.Abs(theX[1] - theX[0] + 1));
+
+                if (theY.Count == 1) yRange = Enumerable.Range(theY[0], 1);
+                else yRange = Enumerable.Range(theY[0], Math.Abs(theY[1] - theY[0] + 1));
+
+                foreach (var x in xRange)
+                {
+                    foreach (var y in yRange)
+                    {
+                        Clay.Add(new Coords(x, y));
+                    }
+                }
             }
         }
 
-        public void RunProgram()
+        public void BreadthFirstSearch()
         {
-            int instructionCount = Program.Values.Count();
-            int instructionPointer = 0;
-            this[0] = 1;
+            Stack<Coords> splittedWater = new Stack<Coords>();
+            int waterCount = 1;
+            int maxY = Clay.Max(x => x.Y);
+            //int maxY = 100;
+            Coords waterCell = new Coords(500, 0);
+            splittedWater.Push(new Coords(500, 1));
+            PreviousCoords.Add(new Coords(500, 1), new Coords(500 ,0));
+            PreviousCoords.Add(new Coords(500, 0), new Coords(500 ,-1));
 
-            while (instructionPointer < instructionCount)
+            while (splittedWater.Any())
             {
-                
+                newWaterCell:
+                waterCell = splittedWater.Pop();
+                while (waterCell.Y <= maxY)
+                {
+                    // too high
+                    if (splittedWater.Any())
+                    {
+                        if (waterCell.Y < splittedWater.Max(w => w.Y)) break;
+                    }
 
-                Console.Write($"{instructionPointer}:  ");
-                DumpRegistry();
+                    if (waterCell.X == 497 && waterCell.Y == 1174)
+                    {
+                        break;
+                    }
 
-                this[instructionRegistry] = instructionPointer;
-                performOperation(Program[instructionPointer]);
-                instructionPointer = this[instructionRegistry];
-                instructionPointer++;
+                    Coords down = new Coords(waterCell.X, waterCell.Y + 1);
+                    Coords left = new Coords(waterCell.X - 1, waterCell.Y);
+                    Coords right = new Coords(waterCell.X + 1, waterCell.Y);
+
+
+                    bool canMoveDown = !(PreviousCoords.Keys.Contains(down)) && !(Clay.Contains(down));
+                    bool canMoveLeft = !(PreviousCoords.Keys.Contains(left)) && !(Clay.Contains(left));
+                    bool canMoveRight = !(PreviousCoords.Keys.Contains(right)) && !(Clay.Contains(right));
+
+                    // cannot move down because there's water down
+                    if (!canMoveDown && PreviousCoords.Keys.Contains(down) && canMoveLeft && canMoveRight)
+                    {
+                        var downWater = PreviousCoords[down];
+                        if (waterCell.X != downWater.X || waterCell.Y != downWater.Y)
+                        {
+                            //PrintMap(waterCell.X, waterCell.Y);
+                            break;
+                        }
+                    }
+
+                    if (canMoveDown)
+                    {
+                     
+                        PreviousCoords.Add(down, waterCell);
+                        fallingWater.Add(waterCell);
+                        waterCell = down;
+                        waterCount++;
+                        if (down.Y + 1 > maxY) break;
+
+                    }
+                    else if (canMoveLeft && canMoveRight)
+                    {
+                        PreviousCoords.Add(right, waterCell);
+                        PreviousCoords.Add(left, waterCell);
+                        splittedWater.Push(right);
+                        waterCell = left;
+                        waterCount += 2;
+
+                    }
+                    else if (canMoveLeft)
+                    {
+                        
+
+                        PreviousCoords.Add(left, waterCell);
+                        waterCell = left;
+                        waterCount++;
+
+                    }
+                    else if (canMoveRight)
+                    {
+
+                        PreviousCoords.Add(right, waterCell);
+                        waterCell = right;
+                        waterCount++;
+                        
+                    }
+                    else
+                    {
+                        int scope = waterCell.X;
+                        // check if we haven't already overflowed on the other side
+                        if (Clay.Contains(left)) // moving right, see the left side
+                        {
+                            while (true)
+                            {
+                                if (Clay.Contains(new Coords(scope, waterCell.Y)))
+                                {
+                                    break;
+                                }
+                                else if (!PreviousCoords.ContainsKey(new Coords(scope, waterCell.Y)))
+                                {
+                                    goto newWaterCell;
+                                }
+                                scope++;
+
+                            }
+                        }
+                        else // moving left, see the right side
+                        {
+                            while (true)
+                            {
+                                if (Clay.Contains(new Coords(scope, waterCell.Y)))
+                                {
+                                    break;
+                                }
+                                else if (!PreviousCoords.ContainsKey(new Coords(scope, waterCell.Y)))
+                                {
+                                    goto newWaterCell;
+                                }
+                                scope--;
+                            }
+                        }
+
+                        waterCell = PreviousCoords[waterCell];
+
+                    }
+
+                }
             }
-            Console.WriteLine(GetRegistryValues()[0]);
+            Console.WriteLine(PreviousCoords.Keys.Distinct().Count());
+            // 1461857 high
+            // 42385 high
+            // 42378 not 
+            // 41032 not
+            // 41033 not
+            // 41031 not
+        }
+
+        public void FindRunningWater()
+        {
+            Stack<Coords> splittedWater = new Stack<Coords>();
+            splittedWater.Push(new Coords(500, 1));
+            Coords waterCell = new Coords(500, 0);
+            int maxY = Clay.Max(x => x.Y);
+
+            while (splittedWater.Any())
+            {
+                waterCell = splittedWater.Pop();
+                while (waterCell.Y <= maxY)
+                {
+
+                    runningWater.Add(waterCell);
+
+                    Coords down = new Coords(waterCell.X, waterCell.Y + 1);
+                    Coords left = new Coords(waterCell.X - 1, waterCell.Y);
+                    Coords right = new Coords(waterCell.X + 1, waterCell.Y);
+                    Coords up = new Coords(waterCell.X, waterCell.Y - 1);
+
+
+                    bool canMoveDown = PreviousCoords.Keys.Contains(down) && !runningWater.Contains(down);
+                    bool canMoveLeft = PreviousCoords.Keys.Contains(left) && !runningWater.Contains(left);
+                    bool canMoveUp = PreviousCoords.Keys.Contains(up);
+                    bool canMoveRight = PreviousCoords.Keys.Contains(right) && !runningWater.Contains(right);
+
+
+                    if (canMoveDown && !canMoveLeft && !canMoveRight)
+                    {
+                        if (!canMoveUp)
+                        {
+                            if (fallingWater.Contains(waterCell))
+                            {
+                                ;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                        runningWater.Add(waterCell);
+                        waterCell = down;
+                    }
+                    else if (canMoveLeft && canMoveRight)
+                    {
+                        splittedWater.Push(left);
+                        waterCell = right;
+                    }
+                    else if (canMoveLeft)
+                    {
+                        waterCell = left;
+                    }
+                    else if (canMoveRight)
+                    {
+                        waterCell = right;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+            PrintMap();
+            Console.WriteLine(runningWater.Count);
             Console.ReadLine();
-
+            //6818 low
+            //missing 67 cells
+            //6813 running water
+            // subtract from pt.1 result
 
         }
 
-        private struct Instruction
+            public void PrintMap(int highlightX = -1, int highlightY = -1)
         {
-            public Operations Opcode { get; }
-            public int[] Values { get; }
-
-            public Instruction(Operations opcode, int[] values)
+            for (int y = 0; y < 1700; y++)
             {
-                Opcode = opcode;
-                Values = values;
+                Console.Write($"{y}: ");
+                for (int x = 200; x < 650; x++)
+                {
+                    if (Clay.Contains(new Coords(x, y)))
+                    {
+                        Console.BackgroundColor = ConsoleColor.DarkRed;
+                        Console.Write("C");
+
+                    }
+                    else if (PreviousCoords.Keys.Contains(new Coords(x, y)))
+                    {
+                        if (x == highlightX && y == highlightY) Console.BackgroundColor = ConsoleColor.Yellow;
+                        else if (runningWater.Contains(new Coords(x, y)))
+                        {
+                            Console.BackgroundColor = ConsoleColor.Green;
+                        }
+                        else Console.BackgroundColor = ConsoleColor.Blue;
+                        Console.Write("W");
+                    }
+                    else
+                    {
+                        Console.Write(".");
+                    }
+                    Console.ResetColor();
+                }
+                Console.WriteLine();
             }
-
-            public override string ToString()
-            {
-               return $"Opcode: {Opcode.ToString()}, values: [{Values[0]}, {Values[1]},{Values[2]}]";
-            }
-        }
-
-        private void DumpRegistry()
-        {
-            Console.WriteLine($"A: {A}, B: {B}, C: {C}, D: {D}, E: {E}, F: {F}");
-        }
-
-        public void DecompiledProgram()
-        {
-            long a = 0;
-            long c = 10551432;
-
-
-            for (long b = 1; b <= c; b++)
-            {
-                if (c % b == 0) a += c / b;
-            }
-
-            Console.WriteLine(a);
-            Console.ReadLine();
+            Console.WriteLine();
 
         }
-
-        #region input
-        /*
-        #ip 5
-        addi 5 16 5
-        seti 1 8 3
-        seti 1 1 1
-        mulr 3 1 4
-        eqrr 4 2 4
-        addr 4 5 5
-        addi 5 1 5
-        addr 3 0 0
-        addi 1 1 1
-        gtrr 1 2 4
-        addr 5 4 5
-        seti 2 7 5
-        addi 3 1 3
-        gtrr 3 2 4
-        addr 4 5 5
-        seti 1 5 5
-        mulr 5 5 5
-        addi 2 2 2
-        mulr 2 2 2
-        mulr 5 2 2
-        muli 2 11 2
-        addi 4 8 4
-        mulr 4 5 4
-        addi 4 20 4
-        addr 2 4 2
-        addr 5 0 5
-        seti 0 4 5
-        setr 5 8 4
-        mulr 4 5 4
-        addr 5 4 4
-        mulr 5 4 4
-        muli 4 14 4
-        mulr 4 5 4
-        addr 2 4 2
-        seti 0 7 0
-        seti 0 9 5
-        */
-        #endregion
-
-
     }
+
+    public struct Coords
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+
+        public Coords(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+    }
+   
+    
+
 }
+
