@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
+using Fare;
 
 namespace ConsoleApp5
 {
@@ -15,302 +17,105 @@ namespace ConsoleApp5
         {
             string input = @"C:\Users\srdecny\Documents\input.txt";
             Map map = new Map();
-            map.LoadMap(input);
-            map.BreadthFirstSearch();
-            map.FindRunningWater();
+            map.ParseMap(input);
+            
+
         }
 
     }
 
-    class Map
+    public class Map
     {
-        HashSet<Coords> Clay = new HashSet<Coords>();
-        Dictionary<Coords, Coords> PreviousCoords = new Dictionary<Coords, Coords>();
-        HashSet<Coords> runningWater = new HashSet<Coords>();
-        HashSet<Coords> fallingWater = new HashSet<Coords>();
 
-        public void LoadMap(string input)
+        StreamReader file;
+        Dictionary<Coords, List<Coords>> Doors = new Dictionary<Coords, List<Coords>>();
+        HashSet<Coords> forkedCoords = new HashSet<Coords>() { new Coords(0, 0) };
+        public void ParseMap(string input)
         {
-            StreamReader file = new StreamReader(input);
-            string line;
-            char[] delimiters = ", ".ToCharArray();
-            char[] coordinateDelimiters = "xy=.".ToCharArray();
+            file = new StreamReader(input);
+            RecurseParsing(new Coords(0, 0));
+            BreadthFirstSearch();
+        }
+
+        public void RecurseParsing(Coords startCoords)
+        {
+            Coords currentCoords = startCoords;
+            forkedCoords.Remove(currentCoords);
             while (!file.EndOfStream)
             {
-                line = file.ReadLine();
-                var coordinates = line.Split(delimiters, StringSplitOptions.RemoveEmptyEntries);
-
-                IEnumerable<int> xRange;
-                IEnumerable<int> yRange;
-                List<int> theX;
-                List<int> theY;
-
-                if (coordinates[0][0] == 'x')
+                char nextChar = (char)file.Read();
+                switch (nextChar)
                 {
-                    theX = coordinates[0].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
-                    theY = coordinates[1].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
-                }
-                else
-                {
-                    theX = coordinates[1].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
-                    theY = coordinates[0].Split(coordinateDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int32.Parse(x)).ToList();
-                }
-
-                if (theX.Count == 1) xRange = Enumerable.Range(theX[0], 1);
-                else xRange = Enumerable.Range(theX[0], Math.Abs(theX[1] - theX[0] + 1));
-
-                if (theY.Count == 1) yRange = Enumerable.Range(theY[0], 1);
-                else yRange = Enumerable.Range(theY[0], Math.Abs(theY[1] - theY[0] + 1));
-
-                foreach (var x in xRange)
-                {
-                    foreach (var y in yRange)
-                    {
-                        Clay.Add(new Coords(x, y));
-                    }
+                    case ')':
+                    case '$':
+                        forkedCoords.Add(currentCoords);
+                        return;
+                    case '(':
+                        RecurseParsing(currentCoords);
+                        break;
+                    case '^':
+                        break;
+                    case '|':   
+                        forkedCoords.Add(currentCoords);
+                        currentCoords = startCoords;
+                        break;
+                    default:
+                        var newCoords = getNextCoords(nextChar, currentCoords);
+                        if (!Doors.ContainsKey(currentCoords))
+                        {
+                            Doors.Add(currentCoords, new List<Coords>());
+                        }
+                        if (!Doors.ContainsKey(newCoords))
+                        {
+                            Doors.Add(newCoords, new List<Coords>());
+                        }
+                        Doors[newCoords].Add(currentCoords);
+                        Doors[currentCoords].Add(newCoords);
+                        currentCoords = newCoords;
+                        break;
                 }
             }
+            
         }
 
         public void BreadthFirstSearch()
         {
-            Stack<Coords> splittedWater = new Stack<Coords>();
-            int waterCount = 1;
-            int maxY = Clay.Max(x => x.Y);
-            //int maxY = 100;
-            Coords waterCell = new Coords(500, 0);
-            splittedWater.Push(new Coords(500, 1));
-            PreviousCoords.Add(new Coords(500, 1), new Coords(500 ,0));
-            PreviousCoords.Add(new Coords(500, 0), new Coords(500 ,-1));
+            Dictionary<Coords, int> distances = new Dictionary<Coords, int>();
+            Queue<Coords> searchQueue = new Queue<Coords>();
+            searchQueue.Enqueue(new Coords(0, 0));
+            distances.Add(new Coords(0, 0), 0);
 
-            while (splittedWater.Any())
+            while (searchQueue.Any())
             {
-                newWaterCell:
-                waterCell = splittedWater.Pop();
-                while (waterCell.Y <= maxY)
+                var searchedCoords = searchQueue.Dequeue();
+                foreach (var neighbour in Doors[searchedCoords])
                 {
-                    // too high
-                    if (splittedWater.Any())
+                    if (!distances.ContainsKey(neighbour))
                     {
-                        if (waterCell.Y < splittedWater.Max(w => w.Y)) break;
-                    }
-
-                    if (waterCell.X == 497 && waterCell.Y == 1174)
-                    {
-                        break;
-                    }
-
-                    Coords down = new Coords(waterCell.X, waterCell.Y + 1);
-                    Coords left = new Coords(waterCell.X - 1, waterCell.Y);
-                    Coords right = new Coords(waterCell.X + 1, waterCell.Y);
-
-
-                    bool canMoveDown = !(PreviousCoords.Keys.Contains(down)) && !(Clay.Contains(down));
-                    bool canMoveLeft = !(PreviousCoords.Keys.Contains(left)) && !(Clay.Contains(left));
-                    bool canMoveRight = !(PreviousCoords.Keys.Contains(right)) && !(Clay.Contains(right));
-
-                    // cannot move down because there's water down
-                    if (!canMoveDown && PreviousCoords.Keys.Contains(down) && canMoveLeft && canMoveRight)
-                    {
-                        var downWater = PreviousCoords[down];
-                        if (waterCell.X != downWater.X || waterCell.Y != downWater.Y)
-                        {
-                            //PrintMap(waterCell.X, waterCell.Y);
-                            break;
-                        }
-                    }
-
-                    if (canMoveDown)
-                    {
-                     
-                        PreviousCoords.Add(down, waterCell);
-                        fallingWater.Add(waterCell);
-                        waterCell = down;
-                        waterCount++;
-                        if (down.Y + 1 > maxY) break;
-
-                    }
-                    else if (canMoveLeft && canMoveRight)
-                    {
-                        PreviousCoords.Add(right, waterCell);
-                        PreviousCoords.Add(left, waterCell);
-                        splittedWater.Push(right);
-                        waterCell = left;
-                        waterCount += 2;
-
-                    }
-                    else if (canMoveLeft)
-                    {
-                        
-
-                        PreviousCoords.Add(left, waterCell);
-                        waterCell = left;
-                        waterCount++;
-
-                    }
-                    else if (canMoveRight)
-                    {
-
-                        PreviousCoords.Add(right, waterCell);
-                        waterCell = right;
-                        waterCount++;
-                        
-                    }
-                    else
-                    {
-                        int scope = waterCell.X;
-                        // check if we haven't already overflowed on the other side
-                        if (Clay.Contains(left)) // moving right, see the left side
-                        {
-                            while (true)
-                            {
-                                if (Clay.Contains(new Coords(scope, waterCell.Y)))
-                                {
-                                    break;
-                                }
-                                else if (!PreviousCoords.ContainsKey(new Coords(scope, waterCell.Y)))
-                                {
-                                    goto newWaterCell;
-                                }
-                                scope++;
-
-                            }
-                        }
-                        else // moving left, see the right side
-                        {
-                            while (true)
-                            {
-                                if (Clay.Contains(new Coords(scope, waterCell.Y)))
-                                {
-                                    break;
-                                }
-                                else if (!PreviousCoords.ContainsKey(new Coords(scope, waterCell.Y)))
-                                {
-                                    goto newWaterCell;
-                                }
-                                scope--;
-                            }
-                        }
-
-                        waterCell = PreviousCoords[waterCell];
-
-                    }
-
-                }
-            }
-            Console.WriteLine(PreviousCoords.Keys.Distinct().Count());
-            // 1461857 high
-            // 42385 high
-            // 42378 not 
-            // 41032 not
-            // 41033 not
-            // 41031 not
-        }
-
-        public void FindRunningWater()
-        {
-            Stack<Coords> splittedWater = new Stack<Coords>();
-            splittedWater.Push(new Coords(500, 1));
-            Coords waterCell = new Coords(500, 0);
-            int maxY = Clay.Max(x => x.Y);
-
-            while (splittedWater.Any())
-            {
-                waterCell = splittedWater.Pop();
-                while (waterCell.Y <= maxY)
-                {
-
-                    runningWater.Add(waterCell);
-
-                    Coords down = new Coords(waterCell.X, waterCell.Y + 1);
-                    Coords left = new Coords(waterCell.X - 1, waterCell.Y);
-                    Coords right = new Coords(waterCell.X + 1, waterCell.Y);
-                    Coords up = new Coords(waterCell.X, waterCell.Y - 1);
-
-
-                    bool canMoveDown = PreviousCoords.Keys.Contains(down) && !runningWater.Contains(down);
-                    bool canMoveLeft = PreviousCoords.Keys.Contains(left) && !runningWater.Contains(left);
-                    bool canMoveUp = PreviousCoords.Keys.Contains(up);
-                    bool canMoveRight = PreviousCoords.Keys.Contains(right) && !runningWater.Contains(right);
-
-
-                    if (canMoveDown && !canMoveLeft && !canMoveRight)
-                    {
-                        if (!canMoveUp)
-                        {
-                            if (fallingWater.Contains(waterCell))
-                            {
-                                ;
-                            }
-                            else
-                            {
-                                break;
-                            }
-                        }
-                        runningWater.Add(waterCell);
-                        waterCell = down;
-                    }
-                    else if (canMoveLeft && canMoveRight)
-                    {
-                        splittedWater.Push(left);
-                        waterCell = right;
-                    }
-                    else if (canMoveLeft)
-                    {
-                        waterCell = left;
-                    }
-                    else if (canMoveRight)
-                    {
-                        waterCell = right;
-                    }
-                    else
-                    {
-                        break;
+                        searchQueue.Enqueue(neighbour);
+                        distances.Add(neighbour, distances[searchedCoords] + 1);
                     }
                 }
             }
-            PrintMap();
-            Console.WriteLine(runningWater.Count);
+
+            Console.WriteLine(distances.Max(x => x.Value));
             Console.ReadLine();
-            //6818 low
-            //missing 67 cells
-            //6813 running water
-            // subtract from pt.1 result
-
         }
 
-            public void PrintMap(int highlightX = -1, int highlightY = -1)
+        private static Coords getNextCoords(char direction, Coords coords)
         {
-            for (int y = 0; y < 1700; y++)
+            switch (direction)
             {
-                Console.Write($"{y}: ");
-                for (int x = 200; x < 650; x++)
-                {
-                    if (Clay.Contains(new Coords(x, y)))
-                    {
-                        Console.BackgroundColor = ConsoleColor.DarkRed;
-                        Console.Write("C");
-
-                    }
-                    else if (PreviousCoords.Keys.Contains(new Coords(x, y)))
-                    {
-                        if (x == highlightX && y == highlightY) Console.BackgroundColor = ConsoleColor.Yellow;
-                        else if (runningWater.Contains(new Coords(x, y)))
-                        {
-                            Console.BackgroundColor = ConsoleColor.Green;
-                        }
-                        else Console.BackgroundColor = ConsoleColor.Blue;
-                        Console.Write("W");
-                    }
-                    else
-                    {
-                        Console.Write(".");
-                    }
-                    Console.ResetColor();
-                }
-                Console.WriteLine();
+                case 'N':
+                    return new Coords(coords.X, coords.Y + 1);
+                case 'S':
+                    return new Coords(coords.X, coords.Y - 1);
+                case 'W':
+                    return new Coords(coords.X -1 , coords.Y);
+                case 'E':
+                    return new Coords(coords.X + 1, coords.Y);
             }
-            Console.WriteLine();
+            throw new Exception("wtf");
 
         }
     }
