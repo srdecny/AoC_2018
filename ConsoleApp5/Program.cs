@@ -98,7 +98,7 @@ namespace ConsoleApp5
                 }
             }
 
-            Console.WriteLine(distances.Max(x => x.Value));
+            Console.WriteLine(distances.Count(x => x.Value >= 1000));
             Console.ReadLine();
         }
 
