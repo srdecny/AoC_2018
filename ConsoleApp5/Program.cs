@@ -5,8 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
-using Fare;
 
 namespace ConsoleApp5
 {
@@ -15,124 +13,231 @@ namespace ConsoleApp5
 
         static void Main(string[] args)
         {
-            string input = @"C:\Users\srdecny\Documents\input.txt";
-            Map map = new Map();
-            map.ParseMap(input);
-            
-
+            string input = @"C:\Users\Vojta\Documents\input.txt";
+            Registry registry = new Registry();
+            registry.ParseInput(input);
+            registry.RunProgram();
         }
 
     }
 
-    public class Map
+    class Registry
     {
+        Dictionary<int, Instruction> Program = new Dictionary<int, Instruction>();
+        int instructionRegistry;
 
-        StreamReader file;
-        Dictionary<Coords, List<Coords>> Doors = new Dictionary<Coords, List<Coords>>();
-        HashSet<Coords> forkedCoords = new HashSet<Coords>() { new Coords(0, 0) };
-        public void ParseMap(string input)
-        {
-            file = new StreamReader(input);
-            RecurseParsing(new Coords(0, 0));
-            BreadthFirstSearch();
-        }
+        int A;
+        int B;
+        int C;
+        int D;
+        int E;
+        int F;
 
-        public void RecurseParsing(Coords startCoords)
+        public int this[int i]
         {
-            Coords currentCoords = startCoords;
-            forkedCoords.Remove(currentCoords);
-            while (!file.EndOfStream)
+            get
             {
-                char nextChar = (char)file.Read();
-                switch (nextChar)
+                switch (i)
                 {
-                    case ')':
-                    case '$':
-                        forkedCoords.Add(currentCoords);
-                        return;
-                    case '(':
-                        RecurseParsing(currentCoords);
+                    case 0:
+                        return A;
+                    case 1:
+                        return B;
+                    case 2:
+                        return C;
+                    case 3:
+                        return D;
+                    case 4:
+                        return E;
+                    case 5:
+                        return F;
+                }
+                throw new Exception("wtf");
+            }
+            set
+            {
+                switch (i)
+                {
+                    case 0:
+                        A = value;
                         break;
-                    case '^':
+                    case 1:
+                        B = value;
                         break;
-                    case '|':   
-                        forkedCoords.Add(currentCoords);
-                        currentCoords = startCoords;
+                    case 2:
+                        C = value;
+                        break;
+                    case 3:
+                        D = value;
+                        break;
+                    case 4:
+                        E = value;
+                        break;
+                    case 5:
+                        F = value;
                         break;
                     default:
-                        var newCoords = getNextCoords(nextChar, currentCoords);
-                        if (!Doors.ContainsKey(currentCoords))
-                        {
-                            Doors.Add(currentCoords, new List<Coords>());
-                        }
-                        if (!Doors.ContainsKey(newCoords))
-                        {
-                            Doors.Add(newCoords, new List<Coords>());
-                        }
-                        Doors[newCoords].Add(currentCoords);
-                        Doors[currentCoords].Add(newCoords);
-                        currentCoords = newCoords;
-                        break;
+                        throw new Exception("wtf");
                 }
             }
-            
         }
 
-        public void BreadthFirstSearch()
+        public int[] GetRegistryValues()
         {
-            Dictionary<Coords, int> distances = new Dictionary<Coords, int>();
-            Queue<Coords> searchQueue = new Queue<Coords>();
-            searchQueue.Enqueue(new Coords(0, 0));
-            distances.Add(new Coords(0, 0), 0);
+            return new int[6] { A, B, C, D, E, F };
+        }
 
-            while (searchQueue.Any())
+        public void SetRegistryValues(int[] values)
+        {
+            A = values[0];
+            B = values[1];
+            C = values[2];
+            D = values[3];
+            E = values[4];
+            F = values[5];
+        }
+
+        public enum Operations { addr, addi, mulr, muli, banr, bani, borr, bori, setr, seti, gtir, gtri, gtrr, eqir, eqri, eqrr }
+
+        private void performOperation(Instruction instruction)
+        {
+            Operations operation = instruction.Opcode;
+            int[] values = instruction.Values;
+            switch (operation)
             {
-                var searchedCoords = searchQueue.Dequeue();
-                foreach (var neighbour in Doors[searchedCoords])
+                case Operations.addr:
+                    this[values[2]] = this[values[0]] + this[values[1]];
+                    break;
+                case Operations.addi:
+                    this[values[2]] = this[values[0]] + values[1];
+                    break;
+                case Operations.mulr:
+                    this[values[2]] = this[values[0]] * this[values[1]];
+                    break;
+                case Operations.muli:
+                    this[values[2]] = this[values[0]] * values[1];
+                    break;
+                case Operations.banr:
+                    this[values[2]] = this[values[0]] & this[values[1]];
+                    break;
+                case Operations.bani:
+                    this[values[2]] = this[values[0]] & values[1];
+                    break;
+                case Operations.borr:
+                    this[values[2]] = this[values[0]] | this[values[1]];
+                    break;
+                case Operations.bori:
+                    this[values[2]] = this[values[0]] | values[1];
+                    break;
+                case Operations.setr:
+                    this[values[2]] = this[values[0]];
+                    break;
+                case Operations.seti:
+                    this[values[2]] = values[0];
+                    break;
+                case Operations.gtir:
+                    this[values[2]] = values[0] > this[values[1]] ? 1 : 0;
+                    break;
+                case Operations.gtri:
+                    this[values[2]] = this[values[0]] > values[1] ? 1 : 0;
+                    break;
+                case Operations.gtrr:
+                    this[values[2]] = this[values[0]] > this[values[1]] ? 1 : 0;
+                    break;
+                case Operations.eqir:
+                    this[values[2]] = values[0] == this[values[1]] ? 1 : 0;
+                    break;
+                case Operations.eqri:
+                    this[values[2]] = this[values[0]] == values[1] ? 1 : 0;
+                    break;
+                case Operations.eqrr:
+                    this[values[2]] = this[values[0]] == this[values[1]] ? 1 : 0;
+                    break;
+                default:
+                    throw new Exception("Wtf");
+            }
+        }
+
+        public void ParseInput(string input)
+        {
+            StreamReader file = new StreamReader(input);
+            string line = file.ReadLine();
+            instructionRegistry = Int32.Parse(line.Split(' ')[1]);
+            int instructionCount = 0;
+            while (!file.EndOfStream)
+            {
+                line = file.ReadLine();
+                string[] words = line.Split(' ');
+                int[] values = new int[3];
+                values[0] = Int32.Parse(words[1]);
+                values[1] = Int32.Parse(words[2]);
+                values[2] = Int32.Parse(words[3]);
+                Operations opcode;
+                Enum.TryParse(words[0], out opcode);
+                Program.Add(instructionCount, new Instruction(opcode, values));
+                instructionCount++;
+
+            }
+        }
+
+        public void RunProgram()
+        {
+            int instructionCount = Program.Values.Count();
+            int instructionPointer = 0;
+            this[0] = 1;
+            HashSet<int> CValues = new HashSet<int>();
+            int lastCValue = 0;
+
+            while (instructionPointer < instructionCount)
+            {
+
+
+                if (instructionPointer == 28)
                 {
-                    if (!distances.ContainsKey(neighbour))
+                    if (!CValues.Add(C))
                     {
-                        searchQueue.Enqueue(neighbour);
-                        distances.Add(neighbour, distances[searchedCoords] + 1);
+                        Console.WriteLine(lastCValue);
+                        Console.ReadLine();
                     }
+                    lastCValue = C;
+
                 }
-            }
 
-            Console.WriteLine(distances.Count(x => x.Value >= 1000));
+                this[instructionRegistry] = instructionPointer;
+                performOperation(Program[instructionPointer]);
+                instructionPointer = this[instructionRegistry];
+                instructionPointer++;
+            }
+            Console.WriteLine(GetRegistryValues()[0]);
             Console.ReadLine();
+
+
         }
 
-        private static Coords getNextCoords(char direction, Coords coords)
+        private struct Instruction
         {
-            switch (direction)
+            public Operations Opcode { get; }
+            public int[] Values { get; }
+
+            public Instruction(Operations opcode, int[] values)
             {
-                case 'N':
-                    return new Coords(coords.X, coords.Y + 1);
-                case 'S':
-                    return new Coords(coords.X, coords.Y - 1);
-                case 'W':
-                    return new Coords(coords.X -1 , coords.Y);
-                case 'E':
-                    return new Coords(coords.X + 1, coords.Y);
+                Opcode = opcode;
+                Values = values;
             }
-            throw new Exception("wtf");
 
+            public override string ToString()
+            {
+                return $"Opcode: {Opcode.ToString()}, values: [{Values[0]}, {Values[1]},{Values[2]}]";
+            }
         }
-    }
 
-    public struct Coords
-    {
-        public int X { get; set; }
-        public int Y { get; set; }
-
-        public Coords(int x, int y)
+        private void DumpRegistry()
         {
-            X = x;
-            Y = y;
+            Console.WriteLine($"A: {A}, B: {B}, C: {C}, D: {D}, E: {E}, F: {F}");
         }
+
+
+
+
     }
-   
-    
-
 }
-
