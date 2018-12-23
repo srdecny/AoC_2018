@@ -17,7 +17,8 @@ namespace ConsoleApp5
             string input = @"C:\Users\Vojta\Documents\input.txt";
             Map map = new Map();
             map.ParseInput(input);
-            map.FindStrongestNanobot();
+            map.CalculateSphereIntersections();
+            map.CalculateHighestDensityPoint();
 
             Console.WriteLine("Finished...");
             Console.ReadLine();
@@ -40,12 +41,12 @@ namespace ConsoleApp5
         }
     }  
 
-    public struct Nanobot
+    public struct Sphere
     {
         public Coords Coordinates { get; }
         public long Range { get; }
         
-        public Nanobot(Coords coords, long range)
+        public Sphere(Coords coords, long range)
         {
             Coordinates = coords;
             Range = range;
@@ -54,7 +55,8 @@ namespace ConsoleApp5
 
     class Map
     {
-        private List<Nanobot> Nanobots = new List<Nanobot>();
+        private Dictionary<Sphere, int> Intersections = new Dictionary<Sphere, int>();
+        private List<Sphere> Spheres = new List<Sphere>();
         public void ParseInput(string input)
         {
             StreamReader reader = new StreamReader(input);
@@ -68,23 +70,73 @@ namespace ConsoleApp5
                 var positionY = words[1].Split(positionDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int64.Parse(x)).ToArray();
                 var positionZ = words[2].Split(positionDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int64.Parse(x)).ToArray();
                 var range = words[3].Split(rangeDelimiters, StringSplitOptions.RemoveEmptyEntries).Select(x => Int64.Parse(x)).ToArray();
-                Nanobots.Add(new Nanobot(new Coords(positionX[0], positionY[0], positionZ[0]), range[0]));
+                Spheres.Add(new Sphere(new Coords(positionX[0], positionY[0], positionZ[0]), range[0]));
             }
         }
 
-        public void FindStrongestNanobot()
+        public void CalculateSphereIntersections()
         {
-            int maxNanobotAmount = Int32.MinValue;
 
-            int nanobotAmount = 0;
-            Nanobot strongestNanobot = Nanobots.OrderByDescending(x => x.Range).First();
-            foreach (var otherNanobot in Nanobots)
+            foreach (var sphere in Spheres)
             {
-                if (CalculateManhattanDistance(strongestNanobot.Coordinates, otherNanobot.Coordinates) <= strongestNanobot.Range) nanobotAmount++;
+                int sphereAmount = 0;
+                foreach (var otherSphere in Spheres)
+                {
+                    if (CalculateManhattanDistance(sphere.Coordinates, otherSphere.Coordinates) <= sphere.Range) sphereAmount++;
+                }
+                Intersections[sphere] = sphereAmount;
             }
-            if (nanobotAmount > maxNanobotAmount) maxNanobotAmount = nanobotAmount;
-            Console.WriteLine(maxNanobotAmount);
         }
+
+        public void CalculateHighestDensityPoint()
+        {
+            Dictionary<Coords, int> intersectionPoints = new Dictionary<Coords, int>();
+            List<Sphere> intersectionSpheres = new List<Sphere>();
+            Sphere highestIntersectionSphere = Intersections.OrderByDescending(x => x.Value).First().Key;
+            foreach (var otherSphere in Spheres)
+            {
+                if (highestIntersectionSphere.Range == otherSphere.Range && highestIntersectionSphere.Coordinates.X == otherSphere.Coordinates.X) continue;
+                var potentialIntersection = CalculateSphereIntersection(highestIntersectionSphere, otherSphere);
+                if (potentialIntersection.HasValue) intersectionSpheres.Add(potentialIntersection.Value);
+            }
+
+            foreach (var sphere in intersectionSpheres)
+            {
+                for (long x = sphere.Coordinates.X - sphere.Range; x < sphere.Coordinates.X + sphere.Range; x++)
+                {
+                    for (long y = sphere.Coordinates.Y - sphere.Range; y < sphere.Coordinates.Y + sphere.Range; y++)
+                    {
+                        for (long z = sphere.Coordinates.Z - sphere.Range; z < sphere.Coordinates.Z + sphere.Range; z++)
+                        {
+                            int intersection = 0;
+                            var coords = new Coords(x, y, z);
+                            if (intersectionPoints.ContainsKey(coords)) continue;
+                            foreach (var anotherSphere in Spheres)
+                            {
+                                if (CalculateManhattanDistance(coords, anotherSphere.Coordinates) <= sphere.Range) intersection++;
+
+                            }
+                            intersectionPoints[coords] = intersection;
+                        }
+
+                    }
+
+                }
+            }
+
+            Console.WriteLine(intersectionPoints.OrderByDescending(x => x.Value).First().Key);
+        }
+
+       public Sphere? CalculateSphereIntersection(Sphere first, Sphere second)
+        {
+            long distance = CalculateManhattanDistance(first.Coordinates, second.Coordinates);
+            if (first.Range + second.Range < distance) return null;
+
+
+
+
+        }
+       
 
         private long CalculateManhattanDistance(Coords first, Coords second)
         {
@@ -93,6 +145,17 @@ namespace ConsoleApp5
             distance += Math.Abs(first.Y - second.Y);
             distance += Math.Abs(first.Z - second.Z);
             return distance;
+        }
+
+        private struct Circle
+        {
+            public Coords Coordinates { get; }
+            public long Radius { get; }
+            public Circle(Coords coords, long radius)
+            {
+                Coordinates = coords;
+                Radius = radius;
+            }
         }
     }
 
