@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Diagnostics;
-using Priority_Queue;
+using MathNet.Spatial.Euclidean;
 
 namespace ConsoleApp5
 {
@@ -14,7 +14,7 @@ namespace ConsoleApp5
 
         static void Main(string[] args)
         {
-            string input = @"C:\Users\Vojta\Documents\input.txt";
+            string input = @"C:\Users\srdecny\Documents\input.txt";
             Map map = new Map();
             map.ParseInput(input);
             map.CalculateSphereIntersections();
@@ -90,51 +90,32 @@ namespace ConsoleApp5
 
         public void CalculateHighestDensityPoint()
         {
-            Dictionary<Coords, int> intersectionPoints = new Dictionary<Coords, int>();
-            List<Sphere> intersectionSpheres = new List<Sphere>();
+            List<Vector3D> intersectionVectors = new List<Vector3D>();
             Sphere highestIntersectionSphere = Intersections.OrderByDescending(x => x.Value).First().Key;
             foreach (var otherSphere in Spheres)
             {
                 if (highestIntersectionSphere.Range == otherSphere.Range && highestIntersectionSphere.Coordinates.X == otherSphere.Coordinates.X) continue;
-                var potentialIntersection = CalculateSphereIntersection(highestIntersectionSphere, otherSphere);
-                if (potentialIntersection.HasValue) intersectionSpheres.Add(potentialIntersection.Value);
+                var potentialIntersection =  CalculateVector(highestIntersectionSphere, otherSphere);
+                if (potentialIntersection.HasValue) intersectionVectors.Add(potentialIntersection.Value);
             }
 
-            foreach (var sphere in intersectionSpheres)
-            {
-                for (long x = sphere.Coordinates.X - sphere.Range; x < sphere.Coordinates.X + sphere.Range; x++)
-                {
-                    for (long y = sphere.Coordinates.Y - sphere.Range; y < sphere.Coordinates.Y + sphere.Range; y++)
-                    {
-                        for (long z = sphere.Coordinates.Z - sphere.Range; z < sphere.Coordinates.Z + sphere.Range; z++)
-                        {
-                            int intersection = 0;
-                            var coords = new Coords(x, y, z);
-                            if (intersectionPoints.ContainsKey(coords)) continue;
-                            foreach (var anotherSphere in Spheres)
-                            {
-                                if (CalculateManhattanDistance(coords, anotherSphere.Coordinates) <= sphere.Range) intersection++;
+            var bestCoords = HillClimbingAlgorithm(highestIntersectionSphere.Coordinates);
+            Console.ReadLine();
+            
 
-                            }
-                            intersectionPoints[coords] = intersection;
-                        }
-
-                    }
-
-                }
-            }
-
-            Console.WriteLine(intersectionPoints.OrderByDescending(x => x.Value).First().Key);
         }
 
-       public Sphere? CalculateSphereIntersection(Sphere first, Sphere second)
+       public Vector3D? CalculateVector(Sphere first, Sphere second)
         {
             long distance = CalculateManhattanDistance(first.Coordinates, second.Coordinates);
-            if (first.Range + second.Range < distance) return null;
 
-
-
-
+            if (distance <= first.Range + second.Range)
+            {
+                return new Vector3D(second.Coordinates.X - first.Coordinates.X,
+                                    second.Coordinates.Y - first.Coordinates.Y,
+                                    second.Coordinates.Z - first.Coordinates.Z);
+            }
+            return null;
         }
        
 
@@ -156,6 +137,71 @@ namespace ConsoleApp5
                 Coordinates = coords;
                 Radius = radius;
             }
+        }
+
+        private List<Coords> GetNeighbours(Coords start)
+        {
+            int range = 10000;
+            List<Coords> neighbours = new List<Coords>();
+            for (long x = start.X - range; x < start.X + range; x++)
+            {
+                for (long y = start.Y - range; y < start.Y + range; y++)
+                {
+                    for (long z = start.Z - range; z < start.Z + range; z++)
+                    {
+                        neighbours.Add(new Coords(start.X + x, start.Y + y, start.Z + z));
+                    }
+
+                }
+
+            }
+            return neighbours;
+        }
+
+        private Coords HillClimbingAlgorithm(Coords start)
+        {
+            Coords currentCoords = start;
+            int currentEval = -1;
+            bool foundBetterScore = false;
+            object myLock = new object();
+
+            while (true)
+            {
+
+                Parallel.ForEach(GetNeighbours(currentCoords), (neighbour) =>
+                {
+                    if (GetScoreOfCoords(neighbour) > currentEval)
+                    {
+                        lock (myLock)
+                        {
+                            if (GetScoreOfCoords(neighbour) > currentEval) {
+                                currentEval = GetScoreOfCoords(neighbour);
+                                currentCoords = neighbour;
+                                foundBetterScore = true;
+                                Console.WriteLine($"Current score: {currentEval}");
+                            }
+                        }
+                    }
+                });
+
+
+                if (!foundBetterScore)
+                {
+                    Console.WriteLine($"{CalculateManhattanDistance(currentCoords, new Coords(0, 0, 0))}");
+                    return currentCoords;
+                }
+                foundBetterScore = false;
+            }
+        }
+
+        private int GetScoreOfCoords(Coords coords)
+        {
+            int score = 0;
+            foreach (var sphere in Spheres)
+            {
+                if (sphere.Range >= CalculateManhattanDistance(coords, sphere.Coordinates)) score++;
+            }
+            return score;
         }
     }
 
