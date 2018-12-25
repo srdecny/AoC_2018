@@ -18,7 +18,7 @@ namespace ConsoleApp5
             string input = @"C:\Users\Vojta\Documents\input.txt";
             Engine engine = new Engine();
             engine.ParseInput(input);
-            engine.DoTheBattle();
+            engine.FindSmallestBoost();
 
             Console.WriteLine("Finished...");
             Console.ReadLine();
@@ -124,18 +124,54 @@ namespace ConsoleApp5
 
                 if (parentheses.Contains(";"))
                 {
-                    //immune
-                    foreach (var word in parentheses.Split(';')[0].Split(' '))
+                    if (parentheses.Split(' ')[0] == "immune")
                     {
-                        Group.Damage type;
-                        if (Enum.TryParse(word, out type))
+                        //immune
+                        foreach (var word in parentheses.Split(';')[0].Split(' '))
                         {
-                            group.ImmuneAgainst.Add(type);
+                            Group.Damage type;
+                            if (Enum.TryParse(word, out type))
+                            {
+                                group.ImmuneAgainst.Add(type);
+                            }
+                        }
+
+                        // weak
+                        foreach (var word in parentheses.Split(';')[1].Split(' '))
+                        {
+                            Group.Damage type;
+                            if (Enum.TryParse(word, out type))
+                            {
+                                group.WeakAgainst.Add(type);
+                            }
                         }
                     }
-
-                    // weak
+                    else
+                    {
+                    // immune
                     foreach (var word in parentheses.Split(';')[1].Split(' '))
+                        {
+                            Group.Damage type;
+                            if (Enum.TryParse(word, out type))
+                            {
+                                group.ImmuneAgainst.Add(type);
+                            }
+                        }
+
+                        // weak
+                        foreach (var word in parentheses.Split(';')[0].Split(' '))
+                        {
+                            Group.Damage type;
+                            if (Enum.TryParse(word, out type))
+                            {
+                                group.WeakAgainst.Add(type);
+                            }
+                        }
+                    }
+                }
+                else if (parentheses.Contains("weak")) // only weak
+                {
+                    foreach (var word in parentheses.Split(' '))
                     {
                         Group.Damage type;
                         if (Enum.TryParse(word, out type))
@@ -144,14 +180,14 @@ namespace ConsoleApp5
                         }
                     }
                 }
-                else // only weak
+                else //only immune
                 {
                     foreach (var word in parentheses.Split(' '))
                     {
                         Group.Damage type;
                         if (Enum.TryParse(word, out type))
                         {
-                            group.WeakAgainst.Add(type);
+                            group.ImmuneAgainst.Add(type);
                         }
                     }
                 }
@@ -174,6 +210,8 @@ namespace ConsoleApp5
 
                 foreach (var group in Groups.OrderByDescending(x => x.EffectiveDamage).ThenByDescending(x => x.Initiative))
                 {
+                    //if (!group.isDead) Console.WriteLine($"{group.ToString()} contains {group.Units} units.");
+
                     //Console.WriteLine($"Now choosing {group.ToString()}");
                     if (group.Faction == Group.Factions.Immune && Infections.Any())
                     {
@@ -204,12 +242,25 @@ namespace ConsoleApp5
 
                 if (Groups.Where(x => x.Faction == Group.Factions.Immune).All(x => x.isDead) || Groups.Where(x => x.Faction == Group.Factions.Infection).All(x => x.isDead))
                 {
-                    Console.WriteLine($"Infections have left: {Groups.Where(x => x.Faction == Group.Factions.Infection).Sum(x => x.Units)}");
-                    Console.WriteLine($"Immunes have left: {Groups.Where(x => x.Faction == Group.Factions.Immune).Sum(x => x.Units)}");
-                    break;
+                    Console.WriteLine($"Infections have left: {Groups.Where(x => x.Faction == Group.Factions.Infection && !x.isDead).Sum(x => x.Units)}");
+                    Console.WriteLine($"Immunes have left: {Groups.Where(x => x.Faction == Group.Factions.Immune && !x.isDead).Sum(x => x.Units)}");
+                    return;
                 }
 
+            
             }
+        }
+
+        public void FindSmallestBoost()
+        {
+            int boost = 77;
+            foreach (var group in Groups.Where(x => x.Faction == Group.Factions.Immune))
+            {
+                group.AttackDamage += boost;
+            }
+            DoTheBattle();
+            //831 too high
+
         }
     }
 
