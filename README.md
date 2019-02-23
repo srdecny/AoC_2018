@@ -1,2 +1,2 @@
 # AoC_2018
-Selected quick&dirty messy solutions for Advent of Code 2018. 
+C# quick and ugly solutions for all days of Advent of Code 2018. 
